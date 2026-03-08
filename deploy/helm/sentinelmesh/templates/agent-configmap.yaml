@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinelmesh-agent-config
+data:
+  agent.yaml: |
+{{ .Values.agent.config | indent 4 }}

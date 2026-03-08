@@ -1,0 +1,418 @@
+use std::{fs::File, io::BufReader, path::PathBuf, sync::Arc};
+
+use anyhow::{Context, Result, anyhow, bail};
+use axum::{
+    Json, Router,
+    extract::{DefaultBodyLimit, State},
+    http::{HeaderMap, StatusCode},
+    response::{Html, IntoResponse, Response},
+    routing::{get, post},
+};
+use clap::Parser;
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::auto::Builder as HyperBuilder,
+    service::TowerToHyperService,
+};
+use metrics::{counter, gauge, histogram};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use parking_lot::RwLock;
+use rustls::{
+    RootCertStore, ServerConfig,
+    pki_types::{CertificateDer, PrivateKeyDer},
+    server::WebPkiClientVerifier,
+};
+use sentinelmesh_analysis::MeshStore;
+use sentinelmesh_core::{
+    AccountDivergence, AggregatorConfig, BatchVerifier, HealthResponse, IngestionResponse,
+    NetworkSnapshot, ProbeEnvelope, ProviderStatus, ServerSecurityConfig, SignaturePropagation,
+    TrustedSigner, telemetry::init_tracing,
+};
+use sentinelmesh_storage::StorageEngine;
+use tokio::net::TcpListener;
+use tokio_rustls::TlsAcceptor;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tracing::{error, info, warn};
+
+#[derive(Debug, Parser)]
+#[command(name = "sentinelmesh-aggregator")]
+#[command(about = "SentinelMesh aggregation plane and public observability API")]
+struct Cli {
+    #[arg(long, env = "SENTINELMESH_CONFIG")]
+    config: PathBuf,
+}
+
+#[derive(Clone)]
+struct AppState {
+    store: Arc<RwLock<MeshStore>>,
+    storage: Arc<StorageEngine>,
+    api_keys: Arc<Vec<String>>,
+    verifier: Arc<BatchVerifier>,
+    require_signed_batches: bool,
+    metrics: PrometheusHandle,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let config: AggregatorConfig = sentinelmesh_core::load_from_path(&cli.config)
+        .with_context(|| format!("failed to load {}", cli.config.display()))?;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    init_tracing(
+        "sentinelmesh-aggregator",
+        &config.log_filter,
+        &config.observability,
+    )?;
+
+    let metrics_handle = PrometheusBuilder::new()
+        .install_recorder()
+        .context("failed to install Prometheus recorder")?;
+    let store = Arc::new(RwLock::new(MeshStore::new(
+        config.analysis.retention,
+        config.analysis.freshness_window,
+    )));
+
+    let storage = Arc::new(StorageEngine::connect(&config.storage).await?);
+    storage.ensure_schema().await?;
+    storage.replay_from_log().await?;
+    let bootstrap_samples = storage
+        .hydrate_recent_samples(config.storage.database.bootstrap_window)
+        .await?;
+    store.write().replace_samples(bootstrap_samples);
+
+    let verifier = config
+        .ingestion
+        .auth
+        .trusted_signers
+        .iter()
+        .map(|trusted_signer| {
+            TrustedSigner::from_base64(
+                trusted_signer.signer_id.clone(),
+                trusted_signer.key_id.clone(),
+                &trusted_signer.public_key_base64,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let state = AppState {
+        store: Arc::clone(&store),
+        storage: Arc::clone(&storage),
+        api_keys: Arc::new(config.ingestion.auth.api_keys.clone()),
+        verifier: Arc::new(BatchVerifier::new(verifier)),
+        require_signed_batches: config.ingestion.auth.require_signed_batches,
+        metrics: metrics_handle.clone(),
+    };
+
+    tokio::spawn(refresh_from_storage_loop(
+        Arc::clone(&storage),
+        Arc::clone(&store),
+        config.storage.database.refresh_interval,
+        config.analysis.retention,
+    ));
+
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/healthz", get(health))
+        .route("/metrics", get(render_metrics))
+        .route("/v1/ingest", post(ingest))
+        .route("/v1/snapshot", get(snapshot))
+        .route("/v1/providers", get(providers))
+        .route("/v1/signatures", get(signatures))
+        .route("/v1/accounts", get(accounts))
+        .layer(DefaultBodyLimit::max(config.ingestion.max_batch_bytes))
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    let listener = TcpListener::bind(config.server.bind_address)
+        .await
+        .with_context(|| format!("failed to bind {}", config.server.bind_address))?;
+
+    let tls_config = build_tls_server_config(&config.security)?;
+    if let Some(tls_config) = tls_config {
+        info!(
+            bind_address = %config.server.bind_address,
+            client_cert_required = config.security.require_client_cert,
+            "aggregator started with native TLS"
+        );
+        serve_tls(listener, app, tls_config).await
+    } else {
+        info!(
+            bind_address = %config.server.bind_address,
+            max_db_connections = config.storage.database.max_connections,
+            "aggregator started without native TLS"
+        );
+        axum::serve(listener, app)
+            .await
+            .context("aggregator server terminated unexpectedly")
+    }
+}
+
+async fn refresh_from_storage_loop(
+    storage: Arc<StorageEngine>,
+    store: Arc<RwLock<MeshStore>>,
+    refresh_interval: std::time::Duration,
+    retention: std::time::Duration,
+) {
+    let mut ticker = tokio::time::interval(refresh_interval);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    loop {
+        ticker.tick().await;
+        match storage.hydrate_recent_samples(retention).await {
+            Ok(samples) => {
+                store.write().replace_samples(samples);
+            }
+            Err(error) => warn!(error = %error, "failed to refresh in-memory state from storage"),
+        }
+    }
+}
+
+async fn serve_tls(
+    listener: TcpListener,
+    app: Router,
+    tls_config: Arc<ServerConfig>,
+) -> Result<()> {
+    let tls_acceptor = TlsAcceptor::from(tls_config);
+
+    loop {
+        let (stream, remote_addr) = listener
+            .accept()
+            .await
+            .context("failed to accept TCP connection")?;
+        let tls_acceptor = tls_acceptor.clone();
+        let app = app.clone();
+
+        tokio::spawn(async move {
+            let tls_stream = match tls_acceptor.accept(stream).await {
+                Ok(stream) => stream,
+                Err(error) => {
+                    warn!(remote_addr = %remote_addr, error = %error, "TLS handshake failed");
+                    return;
+                }
+            };
+
+            let io = TokioIo::new(tls_stream);
+            let builder = HyperBuilder::new(TokioExecutor::new());
+            let service = TowerToHyperService::new(app);
+            if let Err(error) = builder.serve_connection(io, service).await {
+                warn!(remote_addr = %remote_addr, error = %error, "TLS connection terminated with error");
+            }
+        });
+    }
+}
+
+fn build_tls_server_config(security: &ServerSecurityConfig) -> Result<Option<Arc<ServerConfig>>> {
+    let (Some(cert_path), Some(key_path)) = (
+        security.server_cert_path.as_deref(),
+        security.server_key_path.as_deref(),
+    ) else {
+        if security.require_client_cert || security.trusted_client_ca_path.is_some() {
+            bail!("native TLS requires both server_cert_path and server_key_path");
+        }
+        return Ok(None);
+    };
+
+    let cert_chain = load_certificates(cert_path)?;
+    let private_key = load_private_key(key_path)?;
+
+    let builder = ServerConfig::builder();
+    let mut server_config = if let Some(client_ca_path) = security.trusted_client_ca_path.as_deref()
+    {
+        let roots = Arc::new(load_root_store(client_ca_path)?);
+        let verifier = if security.require_client_cert {
+            WebPkiClientVerifier::builder(roots)
+                .build()
+                .map_err(|error| anyhow!("failed to build mandatory client verifier: {error}"))?
+        } else {
+            WebPkiClientVerifier::builder(roots)
+                .allow_unauthenticated()
+                .build()
+                .map_err(|error| anyhow!("failed to build optional client verifier: {error}"))?
+        };
+
+        builder
+            .with_client_cert_verifier(verifier)
+            .with_single_cert(cert_chain, private_key)
+            .context("failed to build rustls server config with client auth")?
+    } else if security.require_client_cert {
+        bail!("trusted_client_ca_path is required when require_client_cert=true");
+    } else {
+        builder
+            .with_no_client_auth()
+            .with_single_cert(cert_chain, private_key)
+            .context("failed to build rustls server config")?
+    };
+
+    server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    Ok(Some(Arc::new(server_config)))
+}
+
+fn load_certificates(path: &str) -> Result<Vec<CertificateDer<'static>>> {
+    let file =
+        File::open(path).with_context(|| format!("failed to open certificate file {path}"))?;
+    let mut reader = BufReader::new(file);
+    rustls_pemfile::certs(&mut reader)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("failed to parse certificate PEM {path}"))
+}
+
+fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
+    let file =
+        File::open(path).with_context(|| format!("failed to open private key file {path}"))?;
+    let mut reader = BufReader::new(file);
+    rustls_pemfile::private_key(&mut reader)
+        .with_context(|| format!("failed to parse private key PEM {path}"))?
+        .ok_or_else(|| anyhow!("no private key found in {path}"))
+}
+
+fn load_root_store(path: &str) -> Result<RootCertStore> {
+    let certificates = load_certificates(path)?;
+    let mut roots = RootCertStore::empty();
+    for certificate in certificates {
+        roots
+            .add(certificate)
+            .map_err(|error| anyhow!("failed to add CA certificate from {path}: {error}"))?;
+    }
+    Ok(roots)
+}
+
+async fn index() -> Html<&'static str> {
+    Html(include_str!("../static/index.html"))
+}
+
+async fn health() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok",
+        service: "sentinelmesh-aggregator",
+        generated_at: chrono::Utc::now(),
+    })
+}
+
+async fn render_metrics(State(state): State<AppState>) -> impl IntoResponse {
+    state.metrics.render()
+}
+
+async fn ingest(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(envelope): Json<ProbeEnvelope>,
+) -> Result<Json<IngestionResponse>, AppError> {
+    authorize(&headers, state.api_keys.as_slice())?;
+    verify_envelope(&state, &envelope)?;
+
+    let batch_id = envelope.batch.batch_id;
+    let endpoints_received = envelope.batch.endpoints.len();
+    let started_at = std::time::Instant::now();
+
+    let persisted = state
+        .storage
+        .persist_envelope(&envelope)
+        .await
+        .map_err(AppError::internal)?;
+    if persisted {
+        state.store.write().ingest(envelope.batch.clone());
+    }
+
+    let snapshot = state.store.read().snapshot();
+    gauge!("sentinelmesh_active_endpoints").set(usize_to_f64(snapshot.active_endpoints));
+    gauge!("sentinelmesh_rpc_consistency_index").set(snapshot.rpc_consistency_index);
+    gauge!("sentinelmesh_provider_hhi").set(snapshot.infrastructure_concentration.provider_hhi);
+
+    counter!("sentinelmesh_ingested_batches_total").increment(1);
+    counter!("sentinelmesh_ingested_endpoints_total").increment(endpoints_received as u64);
+    histogram!("sentinelmesh_ingest_handler_ms")
+        .record(started_at.elapsed().as_secs_f64() * 1000.0);
+
+    Ok(Json(IngestionResponse {
+        accepted: true,
+        batch_id,
+        endpoints_received,
+        received_at: chrono::Utc::now(),
+        persisted,
+    }))
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn usize_to_f64(value: usize) -> f64 {
+    value as f64
+}
+
+async fn snapshot(State(state): State<AppState>) -> Json<NetworkSnapshot> {
+    Json(state.store.read().snapshot())
+}
+
+async fn providers(State(state): State<AppState>) -> Json<Vec<ProviderStatus>> {
+    Json(state.store.read().provider_statuses())
+}
+
+async fn signatures(State(state): State<AppState>) -> Json<Vec<SignaturePropagation>> {
+    Json(state.store.read().signature_propagation())
+}
+
+async fn accounts(State(state): State<AppState>) -> Json<Vec<AccountDivergence>> {
+    Json(state.store.read().account_divergences())
+}
+
+fn authorize(headers: &HeaderMap, api_keys: &[String]) -> Result<(), AppError> {
+    if api_keys.is_empty() {
+        return Ok(());
+    }
+
+    let provided = headers
+        .get("x-sentinelmesh-api-key")
+        .and_then(|value| value.to_str().ok());
+
+    if api_keys
+        .iter()
+        .any(|candidate| Some(candidate.as_str()) == provided)
+    {
+        Ok(())
+    } else {
+        Err(AppError::unauthorized(
+            "missing or invalid x-sentinelmesh-api-key",
+        ))
+    }
+}
+
+fn verify_envelope(state: &AppState, envelope: &ProbeEnvelope) -> Result<(), AppError> {
+    match (&envelope.auth, state.require_signed_batches) {
+        (Some(auth), _) => state
+            .verifier
+            .verify(&envelope.batch, auth)
+            .map_err(AppError::unauthorized),
+        (None, true) => Err(AppError::unauthorized("signed batch required")),
+        (None, false) => Ok(()),
+    }
+}
+
+#[derive(Debug)]
+struct AppError {
+    status: StatusCode,
+    message: String,
+}
+
+impl AppError {
+    fn unauthorized(error: impl std::fmt::Display) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            message: error.to_string(),
+        }
+    }
+
+    fn internal(error: impl std::fmt::Display) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: error.to_string(),
+        }
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        error!(status = %self.status, message = %self.message, "request failed");
+        (self.status, self.message).into_response()
+    }
+}

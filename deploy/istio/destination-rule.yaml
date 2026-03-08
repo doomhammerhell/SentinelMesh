@@ -1,0 +1,9 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: sentinelmesh-aggregator
+spec:
+  host: sentinelmesh-aggregator
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

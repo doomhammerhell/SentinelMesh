@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinelmesh-aggregator-config
+data:
+  aggregator.yaml: |
+{{ .Values.aggregator.config | indent 4 }}

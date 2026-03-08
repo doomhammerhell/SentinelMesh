@@ -1,0 +1,68 @@
+[workspace]
+members = [
+    "apps/sentinelmesh-agent",
+    "apps/sentinelmesh-aggregator",
+    "crates/sentinelmesh-analysis",
+    "crates/sentinelmesh-core",
+    "crates/sentinelmesh-solana",
+    "crates/sentinelmesh-storage",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.85"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1.0"
+axum = { version = "0.8", features = ["http1", "json", "macros", "tokio"] }
+base64 = "0.22"
+blake3 = "1.5"
+chrono = { version = "0.4", features = ["clock", "serde"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+futures = "0.3"
+humantime-serde = "1.1"
+hyper = { version = "1.8", features = ["http1", "http2", "server"] }
+hyper-util = { version = "0.1", features = ["server", "server-auto", "tokio", "service"] }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", default-features = false }
+opentelemetry = "0.28"
+opentelemetry-otlp = { version = "0.28", features = ["grpc-tonic"] }
+opentelemetry_sdk = { version = "0.28", features = ["rt-tokio"] }
+parking_lot = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
+rustls = "0.23"
+rustls-pemfile = "2.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+tempfile = "3.16"
+thiserror = "2.0"
+tokio = { version = "1.45", features = ["full"] }
+tokio-rustls = "0.26"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.29"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1.12", features = ["serde", "v4"] }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_many_lines = "allow"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

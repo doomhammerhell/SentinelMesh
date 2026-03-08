@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: SentinelMesh Aggregation API
+  version: 0.1.0
+servers:
+  - url: http://localhost:9480
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service health
+  /v1/snapshot:
+    get:
+      summary: Current network snapshot
+      responses:
+        "200":
+          description: Snapshot payload
+  /v1/providers:
+    get:
+      summary: Active provider views
+      responses:
+        "200":
+          description: Provider list
+  /v1/signatures:
+    get:
+      summary: Signature propagation windows
+      responses:
+        "200":
+          description: Signature list
+  /v1/accounts:
+    get:
+      summary: Tracked account divergences
+      responses:
+        "200":
+          description: Account divergence list
+  /v1/ingest:
+    post:
+      summary: Ingest a probe envelope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Ingestion accepted
+        "401":
+          description: Unauthorized

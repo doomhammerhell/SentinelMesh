@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sentinelmesh
+      POSTGRES_USER: sentinelmesh
+      POSTGRES_PASSWORD: sentinelmesh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/postgres/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+
+  aggregator:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.aggregator
+    depends_on:
+      - postgres
+    ports:
+      - "9480:9480"
+    volumes:
+      - ./config/aggregator.example.yaml:/etc/sentinelmesh/aggregator.yaml:ro
+      - ./var/aggregator:/var/lib/sentinelmesh
+    command: ["--config", "/etc/sentinelmesh/aggregator.yaml"]
+
+  agent:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.agent
+    depends_on:
+      - aggregator
+    ports:
+      - "9490:9490"
+    volumes:
+      - ./config/agent.example.yaml:/etc/sentinelmesh/agent.yaml:ro
+    command: ["--config", "/etc/sentinelmesh/agent.yaml"]
+
+volumes:
+  postgres-data:

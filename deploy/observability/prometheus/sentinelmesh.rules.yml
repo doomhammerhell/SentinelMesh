@@ -1,0 +1,34 @@
+groups:
+  - name: sentinelmesh.rules
+    rules:
+      - alert: SentinelMeshRpcConsistencyLow
+        expr: sentinelmesh_rpc_consistency_index < 0.85
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: SentinelMesh RPC consistency degraded
+
+      - alert: SentinelMeshProviderConcentrationHigh
+        expr: sentinelmesh_provider_hhi > 0.35
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SentinelMesh provider concentration is elevated
+
+      - alert: SentinelMeshIngestionStalled
+        expr: increase(sentinelmesh_ingested_batches_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: SentinelMesh aggregator has not ingested new batches
+
+      - alert: SentinelMeshCanaryFailures
+        expr: increase(sentinelmesh_agent_canary_failure_total[10m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: SentinelMesh canary emissions are failing

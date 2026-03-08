@@ -1,0 +1,23 @@
+[package]
+name = "sentinelmesh-analysis"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+parking_lot.workspace = true
+sentinelmesh-core = { path = "../sentinelmesh-core" }
+serde.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "snapshot"
+harness = false
+
+[lints]
+workspace = true

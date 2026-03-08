@@ -1,0 +1,15 @@
+[Unit]
+Description=SentinelMesh Agent
+After=network.target
+
+[Service]
+Type=simple
+User=sentinelmesh
+WorkingDirectory=/opt/sentinelmesh
+ExecStart=/usr/local/bin/sentinelmesh-agent --config /etc/sentinelmesh/agent.yaml
+Restart=always
+RestartSec=5
+Environment=SENTINELMESH_LOG_FORMAT=json
+
+[Install]
+WantedBy=multi-user.target

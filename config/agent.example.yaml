@@ -1,0 +1,76 @@
+log_filter: info,sentinelmesh_agent=debug
+
+runtime:
+  sentinel_id: sentinel-scl-01
+  location: santiago-cl
+  sample_interval: 15s
+  request_timeout: 5s
+  max_concurrency: 16
+
+publish:
+  ingestion_url: http://127.0.0.1:9480/v1/ingest
+  timeout: 5s
+  auth:
+    api_key: sentinelmesh-dev-token
+    # Uncomment to enable batch signing and rotate by switching key_id.
+    # signing:
+    #   signer_id: sentinel-scl-01
+    #   key_id: dev-key-2026-03
+    #   private_key_base64: REPLACE_WITH_32_BYTE_BASE64_SECRET
+  tls:
+    ca_cert_path:
+    client_cert_path:
+    client_key_path:
+    domain_name:
+
+admin:
+  bind_address: 127.0.0.1:9490
+
+observability: {}
+
+canary:
+  enabled: false
+  interval: 45s
+  mode:
+    type: disabled
+    # Example for automatic canary transfers via Solana CLI:
+    # type: cli_transfer
+    # solana_cli_path: solana
+    # rpc_url: https://api.devnet.solana.com
+    # sender_keypair_path: /etc/sentinelmesh/devnet-canary.json
+    # recipient_pubkey: 11111111111111111111111111111111
+    # amount_sol: 0.000001
+
+validator_probes:
+  include_identity: true
+  include_vote_accounts: true
+  include_cluster_nodes: true
+  include_leader_schedule: true
+
+endpoints:
+  - id: solana-devnet
+    label: solana-devnet
+    provider: solana-labs
+    region: devnet
+    rpc_url: https://api.devnet.solana.com
+    tags:
+      tier: public
+      network: devnet
+
+  # Uncomment for local reproducible testing with `solana-test-validator`.
+  # - id: local-validator
+  #   label: local-validator
+  #   provider: local
+  #   region: localhost
+  #   rpc_url: http://127.0.0.1:8899
+  #   tags:
+  #     tier: local
+  #     network: localnet
+
+tracked_accounts:
+  - pubkey: 11111111111111111111111111111111
+    commitment: confirmed
+  - pubkey: SysvarC1ock11111111111111111111111111111111
+    commitment: confirmed
+
+tracked_signatures: []

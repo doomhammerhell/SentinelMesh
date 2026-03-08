@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinelmesh-aggregator
+spec:
+  replicas: {{ .Values.aggregator.replicas }}
+  selector:
+    matchLabels:
+      app: sentinelmesh-aggregator
+  template:
+    metadata:
+      labels:
+        app: sentinelmesh-aggregator
+    spec:
+      containers:
+        - name: aggregator
+          image: "{{ .Values.aggregator.image.repository }}:{{ .Values.aggregator.image.tag }}"
+          args: ["--config", "/etc/sentinelmesh/aggregator.yaml"]
+          ports:
+            - containerPort: 9480
+          volumeMounts:
+            - name: config
+              mountPath: /etc/sentinelmesh
+      volumes:
+        - name: config
+          configMap:
+            name: sentinelmesh-aggregator-config

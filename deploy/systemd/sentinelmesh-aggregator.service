@@ -1,0 +1,15 @@
+[Unit]
+Description=SentinelMesh Aggregator
+After=network.target
+
+[Service]
+Type=simple
+User=sentinelmesh
+WorkingDirectory=/opt/sentinelmesh
+ExecStart=/usr/local/bin/sentinelmesh-aggregator --config /etc/sentinelmesh/aggregator.yaml
+Restart=always
+RestartSec=5
+Environment=SENTINELMESH_LOG_FORMAT=json
+
+[Install]
+WantedBy=multi-user.target

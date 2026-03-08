@@ -1,0 +1,51 @@
+aggregator:
+  image:
+    repository: sentinelmesh/aggregator
+    tag: latest
+  replicas: 2
+  service:
+    port: 9480
+  config: |
+    log_filter: info,sentinelmesh_aggregator=debug
+    server:
+      bind_address: 0.0.0.0:9480
+    ingestion:
+      auth:
+        api_keys:
+          - sentinelmesh-dev-token
+        trusted_signers: []
+        require_signed_batches: false
+      max_batch_bytes: 2097152
+    analysis:
+      retention: 10m
+      freshness_window: 60s
+    storage:
+      database:
+        postgres_url: postgres://sentinelmesh:sentinelmesh@postgres:5432/sentinelmesh
+        max_connections: 20
+        bootstrap_window: 10m
+        refresh_interval: 10s
+
+agent:
+  image:
+    repository: sentinelmesh/agent
+    tag: latest
+  replicas: 1
+  config: |
+    log_filter: info,sentinelmesh_agent=debug
+    runtime:
+      sentinel_id: sentinel-k8s-01
+      location: kubernetes
+      sample_interval: 15s
+      request_timeout: 5s
+      max_concurrency: 16
+    publish:
+      ingestion_url: http://sentinelmesh-aggregator:9480/v1/ingest
+      timeout: 5s
+      auth:
+        api_key: sentinelmesh-dev-token
+    admin:
+      bind_address: 0.0.0.0:9490
+    endpoints: []
+    tracked_accounts: []
+    tracked_signatures: []

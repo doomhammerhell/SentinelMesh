@@ -1,0 +1,36 @@
+log_filter: info,sentinelmesh_aggregator=debug
+
+server:
+  bind_address: 0.0.0.0:9480
+
+ingestion:
+  auth:
+    api_keys:
+      - sentinelmesh-dev-token
+    trusted_signers: []
+    require_signed_batches: false
+  max_batch_bytes: 2097152
+
+analysis:
+  retention: 10m
+  freshness_window: 60s
+
+storage:
+  database:
+    postgres_url: postgres://sentinelmesh:sentinelmesh@127.0.0.1:5432/sentinelmesh
+    max_connections: 20
+    bootstrap_window: 10m
+    refresh_interval: 10s
+  replay_log:
+    path: ./var/aggregator/replay.ndjson
+    replay_on_startup: true
+
+observability: {}
+
+security:
+  # Set these to enable native TLS on the aggregator.
+  server_cert_path:
+  server_key_path:
+  # Set these to enforce or optionally validate client certificates.
+  trusted_client_ca_path:
+  require_client_cert: false

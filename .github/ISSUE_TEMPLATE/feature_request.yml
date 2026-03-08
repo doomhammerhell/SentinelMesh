@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a new feature or architectural improvement.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What operator, developer or network problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the expected design and tradeoffs.
+    validations:
+      required: true

@@ -1,0 +1,38 @@
+{
+  "title": "SentinelMesh Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "RPC Consistency Index",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sentinelmesh_rpc_consistency_index", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Active Endpoints",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sentinelmesh_active_endpoints", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Provider HHI",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sentinelmesh_provider_hhi", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingested Batches",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [{ "expr": "rate(sentinelmesh_ingested_batches_total[5m])", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary Failures",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [{ "expr": "rate(sentinelmesh_agent_canary_failure_total[5m])", "refId": "A" }]
+    }
+  ]
+}

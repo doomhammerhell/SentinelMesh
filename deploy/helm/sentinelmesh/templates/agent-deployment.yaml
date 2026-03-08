@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinelmesh-agent
+spec:
+  replicas: {{ .Values.agent.replicas }}
+  selector:
+    matchLabels:
+      app: sentinelmesh-agent
+  template:
+    metadata:
+      labels:
+        app: sentinelmesh-agent
+    spec:
+      containers:
+        - name: agent
+          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          args: ["--config", "/etc/sentinelmesh/agent.yaml"]
+          ports:
+            - containerPort: 9490
+          volumeMounts:
+            - name: config
+              mountPath: /etc/sentinelmesh
+      volumes:
+        - name: config
+          configMap:
+            name: sentinelmesh-agent-config

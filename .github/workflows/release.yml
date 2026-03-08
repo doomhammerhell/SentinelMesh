@@ -1,0 +1,29 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bin: [sentinelmesh-agent, sentinelmesh-aggregator]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --bin ${{ matrix.bin }}
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/release/${{ matrix.bin }} dist/${{ matrix.bin }}
+          tar -C dist -czf dist/${{ matrix.bin }}-linux-amd64.tar.gz ${{ matrix.bin }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.bin }}
+          path: dist/${{ matrix.bin }}-linux-amd64.tar.gz
