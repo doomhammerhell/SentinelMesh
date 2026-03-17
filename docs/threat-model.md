@@ -19,8 +19,8 @@
 
 - compromise of the Solana consensus protocol itself
 - nation-state level network partitioning
-- host-level compromise of a sentinel node after key theft
 - full validator binary attestation
+*(Note: Host-level memory compromise of a sentinel node is mitigated strictly for environments leveraging AWS Nitro Enclaves, which isolate the private key from the host OS)*
 
 ## Threats and Mitigations
 
@@ -66,6 +66,20 @@ Mitigations:
 - native TLS/mTLS termination in the aggregator
 - mTLS manifests for service mesh or ingress
 - application-layer signing independent of transport
+
+### Remote Fleet Hijacking & Aggregator Control 
+
+Mitigations:
+
+- `x-sentinelmesh-api-key` header required for all Control Plane modifications (`/v1/admin/broadcast`)
+- Asynchronous TCP Ping/Pong mechanism forcing disconnected/half-open agents to reconnect actively.
+
+### Edge Host Denial of Service & Command Injection
+
+Mitigations:
+
+- Strict **Ring Buffer** limits (10,000 batches) applied to the Agent `sled` WAL, discarding oldest logs if the aggregator is unreachable, protecting host disks from absolute ingestion saturation.
+- Canary Smart Contract command execution exclusively validates base file paths (preventing Shell/Path traversal `../bin/sh`) discarding untrusted YAML injection vectors.
 
 ## Residual Risks
 

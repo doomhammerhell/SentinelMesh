@@ -1,22 +1,44 @@
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: sentinelmesh
-      POSTGRES_USER: sentinelmesh
-      POSTGRES_PASSWORD: sentinelmesh
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.10
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
     ports:
-      - "5432:5432"
+      - "8082:8082"
+      - "9092:9092"
+      - "29092:29092"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./deploy/postgres/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+      - redpanda-data:/var/lib/redpanda/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    environment:
+      - CLICKHOUSE_USER=sentinelmesh
+      - CLICKHOUSE_PASSWORD=sentinelmesh
+      - CLICKHOUSE_DB=sentinelmesh
 
   aggregator:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.aggregator
     depends_on:
-      - postgres
+      - redpanda
+      - clickhouse
     ports:
       - "9480:9480"
     volumes:
@@ -37,4 +59,5 @@ services:
     command: ["--config", "/etc/sentinelmesh/agent.yaml"]
 
 volumes:
-  postgres-data:
+  redpanda-data:
+  clickhouse-data:

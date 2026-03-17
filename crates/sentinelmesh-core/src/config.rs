@@ -79,17 +79,24 @@ pub struct AgentConfig {
 pub struct AgentRuntimeConfig {
     pub sentinel_id: String,
     pub location: String,
+    #[serde(default)]
+    pub asn: Option<u32>,
     #[serde(default = "default_sample_interval", with = "humantime_serde")]
     pub sample_interval: Duration,
     #[serde(default = "default_request_timeout", with = "humantime_serde")]
     pub request_timeout: Duration,
     #[serde(default = "default_max_concurrency")]
     pub max_concurrency: usize,
+    #[serde(default = "default_agent_data_dir")]
+    pub data_dir: String,
+    #[serde(default = "default_wal_max_entries")]
+    pub wal_max_entries: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PublishConfig {
     pub ingestion_url: String,
+    pub control_url: Option<String>,
     #[serde(default)]
     pub auth: PublishAuthConfig,
     #[serde(default = "default_publish_timeout", with = "humantime_serde")]
@@ -107,10 +114,25 @@ pub struct PublishAuthConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SigningKeyConfig {
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SigningKeyConfig {
+    Memory(MemorySignerConfig),
+    NitroEnclave(NitroEnclaveConfig),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct MemorySignerConfig {
     pub signer_id: String,
     pub key_id: String,
     pub private_key_base64: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct NitroEnclaveConfig {
+    pub signer_id: String,
+    pub key_id: String,
+    pub vsock_cid: u32,
+    pub vsock_port: u32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -147,6 +169,7 @@ pub enum CanaryMode {
     #[default]
     Disabled,
     CliTransfer(CanaryCliTransferConfig),
+    SmartContract(CanarySmartContractConfig),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -158,6 +181,21 @@ pub struct CanaryCliTransferConfig {
     pub recipient_pubkey: String,
     #[serde(default = "default_canary_amount_sol")]
     pub amount_sol: f64,
+    #[serde(default = "default_compute_unit_price")]
+    pub compute_unit_price: u64,
+    #[serde(default = "default_compute_unit_limit")]
+    pub compute_unit_limit: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CanarySmartContractConfig {
+    #[serde(default = "default_canary_client_path")]
+    pub client_path: String,
+    pub rpc_url: String,
+    pub sender_keypair_path: String,
+    pub program_id: String,
+    #[serde(default = "default_hash_iterations")]
+    pub hash_iterations: u32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -185,6 +223,8 @@ pub struct AggregatorConfig {
     pub observability: ObservabilityConfig,
     #[serde(default)]
     pub security: ServerSecurityConfig,
+    #[serde(default)]
+    pub alerts: Option<AlertsConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -229,27 +269,30 @@ pub struct AnalysisConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StorageConfig {
-    pub database: DatabaseConfig,
-    #[serde(default)]
-    pub replay_log: Option<ReplayLogConfig>,
+    pub kafka: KafkaConfig,
+    pub clickhouse: ClickHouseConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct DatabaseConfig {
-    pub postgres_url: String,
-    #[serde(default = "default_max_db_connections")]
-    pub max_connections: u32,
-    #[serde(default = "default_bootstrap_window", with = "humantime_serde")]
-    pub bootstrap_window: Duration,
-    #[serde(default = "default_refresh_interval", with = "humantime_serde")]
+pub struct KafkaConfig {
+    #[serde(default = "default_kafka_brokers")]
+    pub brokers: Vec<String>,
+    #[serde(default = "default_kafka_topic")]
+    pub topic: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ClickHouseConfig {
+    #[serde(default = "default_clickhouse_url")]
+    pub url: String,
+    pub user: Option<String>,
+    pub password: Option<String>,
+    pub database: String,
+    #[serde(
+        default = "default_clickhouse_refresh_interval",
+        with = "humantime_serde"
+    )]
     pub refresh_interval: Duration,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ReplayLogConfig {
-    pub path: String,
-    #[serde(default = "default_bool_true")]
-    pub replay_on_startup: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -277,6 +320,19 @@ pub struct ServerSecurityConfig {
     pub trusted_client_ca_path: Option<String>,
     #[serde(default)]
     pub require_client_cert: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AlertsConfig {
+    pub min_severity: crate::model::AnomalySeverity,
+    pub webhooks: Vec<WebhookConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct WebhookConfig {
+    pub url: String,
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -325,16 +381,20 @@ const fn default_max_batch_bytes() -> usize {
     1_048_576
 }
 
-const fn default_max_db_connections() -> u32 {
-    20
-}
-
-const fn default_bootstrap_window() -> Duration {
-    Duration::from_secs(600)
-}
-
-const fn default_refresh_interval() -> Duration {
+const fn default_clickhouse_refresh_interval() -> Duration {
     Duration::from_secs(10)
+}
+
+fn default_kafka_brokers() -> Vec<String> {
+    vec!["127.0.0.1:9092".to_owned()]
+}
+
+fn default_kafka_topic() -> String {
+    "sentinelmesh_ingest".to_owned()
+}
+
+fn default_clickhouse_url() -> String {
+    "http://127.0.0.1:8123".to_owned()
 }
 
 const fn default_canary_interval() -> Duration {
@@ -347,6 +407,30 @@ const fn default_bool_true() -> bool {
 
 const fn default_canary_amount_sol() -> f64 {
     0.000_001
+}
+
+const fn default_compute_unit_price() -> u64 {
+    100_000
+}
+
+const fn default_compute_unit_limit() -> u32 {
+    200_000
+}
+
+fn default_canary_client_path() -> String {
+    "sentinelmesh-canary-client".to_owned()
+}
+
+const fn default_hash_iterations() -> u32 {
+    100_000
+}
+
+fn default_agent_data_dir() -> String {
+    "var/lib/sentinelmesh".to_owned()
+}
+
+const fn default_wal_max_entries() -> usize {
+    10_000
 }
 
 fn default_log_filter() -> String {
@@ -445,10 +529,15 @@ analysis:
   retention: 10m
   freshness_window: 60s
 storage:
-  database:
-    postgres_url: postgres://sentinelmesh:sentinelmesh@localhost:5432/sentinelmesh
-    max_connections: 10
-    bootstrap_window: 10m
+  kafka:
+    brokers:
+      - 127.0.0.1:9092
+    topic: sentinelmesh_ingest
+  clickhouse:
+    url: http://127.0.0.1:8123
+    user: sentinelmesh
+    password: sentinelmesh
+    database: sentinelmesh
     refresh_interval: 10s
 ";
 
@@ -459,6 +548,8 @@ storage:
             config.ingestion.auth.api_keys.first().map(String::as_str),
             Some("sentinelmesh-dev-token")
         );
-        assert_eq!(config.storage.database.max_connections, 10);
+        assert_eq!(config.storage.kafka.topic, "sentinelmesh_ingest");
+        assert_eq!(config.storage.clickhouse.database, "sentinelmesh");
+        assert_eq!(config.storage.clickhouse.refresh_interval.as_secs(), 10);
     }
 }

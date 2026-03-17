@@ -16,14 +16,16 @@ analysis:
   freshness_window: 60s
 
 storage:
-  database:
-    postgres_url: postgres://sentinelmesh:sentinelmesh@127.0.0.1:5432/sentinelmesh
-    max_connections: 20
-    bootstrap_window: 10m
+  kafka:
+    brokers:
+      - 127.0.0.1:9092
+    topic: sentinelmesh_ingest
+  clickhouse:
+    url: http://127.0.0.1:8123
+    user: sentinelmesh
+    password: sentinelmesh
+    database: sentinelmesh
     refresh_interval: 10s
-  replay_log:
-    path: ./var/aggregator/replay.ndjson
-    replay_on_startup: true
 
 observability: {}
 
@@ -34,3 +36,13 @@ security:
   # Set these to enforce or optionally validate client certificates.
   trusted_client_ca_path:
   require_client_cert: false
+
+# alerts:
+#   min_severity: warning
+#   webhooks:
+#     - url: "https://hooks.slack.com/services/T0000/B0000/XXXXX"
+#       headers:
+#         Content-Type: application/json
+#     - url: "https://events.pagerduty.com/v2/enqueue"
+#       headers:
+#         Authorization: "Token token=YOUR_API_KEY"

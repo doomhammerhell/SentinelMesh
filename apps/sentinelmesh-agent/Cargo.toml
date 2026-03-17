@@ -31,6 +31,9 @@ tracing.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+sled = "0.34.7"
+tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
+async-trait = "0.1.89"
 
 [lints]
 workspace = true

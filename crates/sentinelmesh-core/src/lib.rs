@@ -5,20 +5,21 @@ pub mod telemetry;
 
 pub use auth::{BatchVerifier, SigningMaterial, TrustedSigner, sign_batch};
 pub use config::{
-    AgentConfig, AgentRuntimeConfig, AggregatorConfig, AggregatorServerConfig, AnalysisConfig,
-    CanaryCliTransferConfig, CanaryConfig, CanaryMode, ConfigLoadError, DatabaseConfig,
-    IngestionAuthConfig, IngestionConfig, ObservabilityConfig, OtlpConfig, PublishAuthConfig,
-    PublishConfig, ReplayLogConfig, RpcEndpointConfig, ServerSecurityConfig, SigningKeyConfig,
-    StorageConfig, TlsClientConfig, TrackedAccountConfig, TrustedSignerConfig,
-    ValidatorProbeConfig, load_from_path,
+    AgentConfig, AgentRuntimeConfig, AggregatorConfig, AggregatorServerConfig, AlertsConfig,
+    AnalysisConfig, CanaryCliTransferConfig, CanaryConfig, CanaryMode, ClickHouseConfig,
+    ConfigLoadError, IngestionAuthConfig, IngestionConfig, KafkaConfig, ObservabilityConfig,
+    OtlpConfig, PublishAuthConfig, PublishConfig, RpcEndpointConfig, ServerSecurityConfig,
+    SigningKeyConfig, StorageConfig, TlsClientConfig, TrackedAccountConfig, TrustedSignerConfig,
+    ValidatorProbeConfig, WebhookConfig, load_from_path,
 };
 pub use model::{
     AccountDivergence, AccountObservation, AccountStateVariant, Anomaly, AnomalySeverity,
-    BatchAuth, BlockhashObservation, ClusterNodesObservation, EndpointObservation, EndpointSample,
-    HealthResponse, IdentityObservation, InfrastructureConcentration, IngestionResponse,
-    LeaderScheduleObservation, NetworkSnapshot, ProbeBatch, ProbeEnvelope, ProbeValue,
-    PropagationSummary, ProviderShare, ProviderStatus, SignatureObservation, SignaturePropagation,
-    SignatureStatusObservation, ValidatorStateDivergence, VoteAccountsObservation,
+    BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage, EndpointObservation,
+    EndpointSample, HealthResponse, IdentityObservation, InfrastructureConcentration,
+    IngestionResponse, LeaderScheduleObservation, NetworkSnapshot, ProbeBatch, ProbeEnvelope,
+    ProbeValue, PropagationSummary, ProviderShare, ProviderStatus, SignatureObservation,
+    SignaturePropagation, SignatureStatusObservation, ValidatorStateDivergence,
+    VoteAccountsObservation,
 };
 
 use anyhow::Context;

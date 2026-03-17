@@ -17,6 +17,7 @@ fn benchmark_snapshot(c: &mut Criterion) {
             sampled_at: Utc::now(),
             sentinel_id: format!("sentinel-{batch_index}"),
             sentinel_location: "benchmark".to_owned(),
+            asn: None,
             endpoints: (0_u64..8)
                 .map(|endpoint_index| EndpointObservation {
                     endpoint: RpcEndpointConfig {

@@ -110,6 +110,7 @@ impl MeshStore {
         );
 
         let infrastructure_concentration = Self::infrastructure_concentration(&active);
+        let asn_hhi = Self::asn_concentration(&active);
         let propagation = summarize_propagation(&signature_propagation);
         let anomalies = build_anomalies(
             rpc_consistency_index,
@@ -118,6 +119,7 @@ impl MeshStore {
             blockhash_disagreement_ratio,
             account_divergences.len(),
             infrastructure_concentration.provider_hhi,
+            asn_hhi,
             propagation.max_window_ms,
         );
 
@@ -131,6 +133,7 @@ impl MeshStore {
                 .len(),
             active_endpoints: active.len(),
             rpc_consistency_index,
+            asn_hhi,
             validator_state_divergence: ValidatorStateDivergence {
                 slot_spread,
                 block_height_spread,
@@ -356,6 +359,26 @@ impl MeshStore {
         }
     }
 
+    fn asn_concentration(active: &[&EndpointSample]) -> f64 {
+        let mut counts: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
+        let mut total_with_asn = 0;
+        for sample in active {
+            if let Some(asn) = sample.asn {
+                *counts.entry(asn).or_default() += 1;
+                total_with_asn += 1;
+            }
+        }
+        if total_with_asn == 0 {
+            return 0.0;
+        }
+        let mut asn_hhi = 0.0;
+        for count in counts.values() {
+            let share = ratio_usize(*count, total_with_asn);
+            asn_hhi += share * share;
+        }
+        asn_hhi
+    }
+
     fn active_samples(&self, now: DateTime<Utc>) -> Vec<&EndpointSample> {
         let cutoff = now - chrono_duration(self.freshness_window);
         let mut latest: BTreeMap<String, &EndpointSample> = BTreeMap::new();
@@ -411,6 +434,7 @@ fn summarize_propagation(propagation: &[SignaturePropagation]) -> PropagationSum
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_anomalies(
     rpc_consistency_index: f64,
     slot_spread: u64,
@@ -418,23 +442,27 @@ fn build_anomalies(
     blockhash_disagreement_ratio: f64,
     account_divergence_count: usize,
     provider_hhi: f64,
+    asn_hhi: f64,
     max_propagation_window_ms: Option<u64>,
 ) -> Vec<Anomaly> {
     let mut anomalies = Vec::new();
 
+    let is_topologically_blind = asn_hhi >= 0.90; // Over 90% concentration in a single ASN
+
     if rpc_consistency_index < 0.85 {
         anomalies.push(Anomaly {
-            severity: AnomalySeverity::Critical,
+            severity: if is_topologically_blind { AnomalySeverity::Warning } else { AnomalySeverity::Critical },
             code: "rpc_consistency_degraded".to_owned(),
             summary: format!(
-                "RPC consistency index degraded to {rpc_consistency_index:.3}; independent verification should inspect provider skew."
+                "RPC consistency index degraded to {rpc_consistency_index:.3};{}.",
+                if is_topologically_blind { " High ASN concentration detected, downgrading severity as possible topological blindness" } else { " independent verification should inspect provider skew" }
             ),
         });
     }
 
     if slot_spread > 8 {
         anomalies.push(Anomaly {
-            severity: if slot_spread > 32 {
+            severity: if slot_spread > 32 && !is_topologically_blind {
                 AnomalySeverity::Critical
             } else {
                 AnomalySeverity::Warning
@@ -448,7 +476,7 @@ fn build_anomalies(
 
     if block_height_spread > 8 {
         anomalies.push(Anomaly {
-            severity: if block_height_spread > 32 {
+            severity: if block_height_spread > 32 && !is_topologically_blind {
                 AnomalySeverity::Critical
             } else {
                 AnomalySeverity::Warning
@@ -522,8 +550,35 @@ fn chrono_duration(duration: Duration) -> chrono::Duration {
 }
 
 fn numeric_agreement(values: &[u64]) -> Option<f64> {
-    let max = *values.iter().max()?;
-    let min = *values.iter().min()?;
+    if values.is_empty() {
+        return None;
+    }
+
+    // Low sample counts skip the BFT trimming
+    if values.len() <= 2 {
+        let max = *values.iter().max()?;
+        let min = *values.iter().min()?;
+        if max == 0 {
+            return Some(1.0);
+        }
+        return Some((1.0 - ratio_u64(max - min, max)).clamp(0.0, 1.0));
+    }
+
+    // BFT Implementation: Trimmed means removing the 10% bottom and top tails
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let trim_count = (sorted.len() as f64 * 0.1).floor() as usize;
+    let trimmed = &sorted[trim_count..sorted.len() - trim_count];
+
+    let max = *trimmed.last()?;
+    let min = *trimmed.first()?;
+
     if max == 0 {
         Some(1.0)
     } else {
@@ -707,6 +762,7 @@ mod tests {
             sampled_at,
             sentinel_id: sentinel_id.to_owned(),
             sentinel_location: location.to_owned(),
+            asn: None,
             endpoints,
         }
     }

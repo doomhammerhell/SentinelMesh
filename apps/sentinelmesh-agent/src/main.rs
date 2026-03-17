@@ -1,3 +1,7 @@
+mod auth;
+mod control;
+mod wal;
+
 use std::{collections::VecDeque, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -15,8 +19,7 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use parking_lot::RwLock;
 use reqwest::{Certificate, Client, Identity};
 use sentinelmesh_core::{
-    AgentConfig, BatchAuth, HealthResponse, ProbeBatch, ProbeEnvelope, SigningMaterial,
-    telemetry::init_tracing,
+    AgentConfig, BatchAuth, HealthResponse, ProbeBatch, ProbeEnvelope, telemetry::init_tracing,
 };
 use sentinelmesh_solana::SolanaProbe;
 use serde::Serialize;
@@ -71,7 +74,12 @@ impl AgentStatus {
                 .auth
                 .signing
                 .as_ref()
-                .map(|signing| signing.key_id.clone()),
+                .map(|signing| match signing {
+                    sentinelmesh_core::SigningKeyConfig::Memory(mem) => mem.key_id.clone(),
+                    sentinelmesh_core::SigningKeyConfig::NitroEnclave(nitro) => {
+                        nitro.key_id.clone()
+                    }
+                }),
             last_batch_id: None,
             last_batch_at: None,
             last_publish_success_at: None,
@@ -81,15 +89,18 @@ impl AgentStatus {
     }
 }
 
+#[derive(Clone)]
 struct BatchPublisher {
     client: Client,
     ingestion_url: String,
     api_key: Option<String>,
-    signing_material: Option<SigningMaterial>,
+    signer_backend: Option<std::sync::Arc<dyn auth::SignerBackend>>,
+    wal: Arc<wal::DiskQueue>,
+    wal_max_entries: usize,
 }
 
 impl BatchPublisher {
-    fn new(config: &AgentConfig) -> Result<Self> {
+    fn new(config: &AgentConfig, wal: Arc<wal::DiskQueue>) -> Result<Self> {
         let mut client_builder = Client::builder()
             .connect_timeout(config.publish.timeout)
             .timeout(config.publish.timeout)
@@ -125,40 +136,29 @@ impl BatchPublisher {
             .build()
             .context("failed to construct publish client")?;
 
-        let signing_material = config
-            .publish
-            .auth
-            .signing
-            .as_ref()
-            .map(|signing| {
-                SigningMaterial::from_base64(
-                    signing.signer_id.clone(),
-                    signing.key_id.clone(),
-                    &signing.private_key_base64,
-                )
-            })
-            .transpose()?;
+        let signer_backend: Option<std::sync::Arc<dyn auth::SignerBackend>> =
+            match &config.publish.auth.signing {
+                Some(sentinelmesh_core::SigningKeyConfig::Memory(mem_cfg)) => {
+                    Some(std::sync::Arc::new(auth::LocalMemorySigner::new(mem_cfg)?))
+                }
+                Some(sentinelmesh_core::SigningKeyConfig::NitroEnclave(nitro_cfg)) => Some(
+                    std::sync::Arc::new(auth::NitroEnclaveSigner::new(nitro_cfg)),
+                ),
+                None => None,
+            };
 
         Ok(Self {
             client,
             ingestion_url: config.publish.ingestion_url.clone(),
             api_key: config.publish.auth.api_key.clone(),
-            signing_material,
+            signer_backend,
+            wal,
+            wal_max_entries: config.runtime.wal_max_entries,
         })
     }
 
-    async fn publish(&self, batch: ProbeBatch) -> Result<()> {
-        let auth = self
-            .signing_material
-            .as_ref()
-            .map(|signing| signing.sign(&batch, Utc::now()))
-            .transpose()?;
-        let envelope = ProbeEnvelope { batch, auth };
-
-        let mut request = self
-            .client
-            .post(self.ingestion_url.as_str())
-            .json(&envelope);
+    async fn dispatch_network(&self, envelope: &ProbeEnvelope) -> Result<()> {
+        let mut request = self.client.post(self.ingestion_url.as_str()).json(envelope);
         if let Some(api_key) = &self.api_key {
             request = request.header("x-sentinelmesh-api-key", api_key);
         }
@@ -178,6 +178,26 @@ impl BatchPublisher {
                 .await
                 .unwrap_or_else(|_| "<body unavailable>".to_owned());
             bail!("aggregator rejected batch with status {status}: {body}");
+        }
+
+        Ok(())
+    }
+
+    async fn publish(&self, batch: ProbeBatch) -> Result<()> {
+        let auth = if let Some(backend) = &self.signer_backend {
+            Some(backend.sign(&batch, Utc::now()).await?)
+        } else {
+            None
+        };
+        let envelope = ProbeEnvelope {
+            batch: batch.clone(),
+            auth,
+        };
+
+        if let Err(e) = self.dispatch_network(&envelope).await {
+            warn!(error = %e, batch_id = %batch.batch_id, "network dispatch failed, writing to WAL");
+            self.wal.push(&batch, self.wal_max_entries)?;
+            return Err(e);
         }
 
         Ok(())
@@ -212,8 +232,15 @@ async fn main() -> Result<()> {
         canary_signatures: Arc::new(RwLock::new(VecDeque::with_capacity(32))),
     };
 
+    let data_dir = PathBuf::from(&config.runtime.data_dir);
+    if !data_dir.exists() {
+        std::fs::create_dir_all(&data_dir)
+            .with_context(|| format!("failed to create data dir {}", data_dir.display()))?;
+    }
+    let wal = Arc::new(wal::DiskQueue::open(data_dir.join("wal"))?);
+
     let probe = SolanaProbe::new(config.runtime.request_timeout)?;
-    let publisher = BatchPublisher::new(&config)?;
+    let publisher = BatchPublisher::new(&config, Arc::clone(&wal))?;
 
     let admin_listener = tokio::net::TcpListener::bind(config.admin.bind_address)
         .await
@@ -245,18 +272,67 @@ async fn main() -> Result<()> {
         ));
     }
 
+    tokio::spawn(run_flusher_loop(publisher.clone(), Arc::clone(&wal)));
+
+    let live_endpoints = Arc::new(RwLock::new(config.endpoints.clone()));
+
+    if let Some(control_url) = config.publish.control_url.clone() {
+        tokio::spawn(control::run_control_plane(
+            control_url,
+            Arc::clone(&status),
+            Arc::clone(&live_endpoints),
+        ));
+    }
+
     info!(
         sentinel_id = %config.runtime.sentinel_id,
         bind_address = %config.admin.bind_address,
-        endpoints = config.endpoints.len(),
+        endpoints = live_endpoints.read().len(),
         "agent started"
     );
 
-    run_collection_loop(config, probe, publisher, status, runtime_state).await
+    run_collection_loop(
+        config,
+        live_endpoints,
+        probe,
+        publisher,
+        status,
+        runtime_state,
+    )
+    .await
+}
+
+async fn run_flusher_loop(publisher: BatchPublisher, wal: Arc<wal::DiskQueue>) {
+    let mut ticker = tokio::time::interval(std::time::Duration::from_secs(5));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    loop {
+        ticker.tick().await;
+
+        while wal.len() > 0 {
+            if let Ok(Some((k, batch))) = wal.pop_front() {
+                // Try sending the batch
+                // Sign it exactly on the dispatch frame to bypass 30s Replay Protection
+                match publisher.publish(batch.clone()).await {
+                    Ok(()) => {
+                        let _ = wal.remove(&k);
+                        info!(batch_id = %batch.batch_id, "historic batch flushed from WAL successfully");
+                    }
+                    Err(_) => {
+                        // Rede ainda capada ou recusando. Parar e tentar dnv no prox tick.
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 async fn run_collection_loop(
     config: AgentConfig,
+    live_endpoints: Arc<RwLock<Vec<sentinelmesh_core::RpcEndpointConfig>>>,
     probe: SolanaProbe,
     publisher: BatchPublisher,
     status: Arc<RwLock<AgentStatus>>,
@@ -270,8 +346,9 @@ async fn run_collection_loop(
             _ = ticker.tick() => {
                 let loop_started_at = std::time::Instant::now();
                 let tracked_signatures = merged_signatures(&config, &runtime_state);
+                let current_endpoints = live_endpoints.read().clone();
                 let observations =
-                    collect_observations(&config, &probe, &tracked_signatures).await;
+                    collect_observations(&config, current_endpoints, &probe, &tracked_signatures).await;
 
                 let mut sorted_observations = observations;
                 sorted_observations.sort_by(|left, right| left.endpoint.id.cmp(&right.endpoint.id));
@@ -282,6 +359,7 @@ async fn run_collection_loop(
                     sampled_at: Utc::now(),
                     sentinel_id: config.runtime.sentinel_id.clone(),
                     sentinel_location: config.runtime.location.clone(),
+                    asn: config.runtime.asn,
                     endpoints: sorted_observations,
                 };
 
@@ -343,10 +421,10 @@ fn usize_to_f64(value: usize) -> f64 {
 
 async fn collect_observations(
     config: &AgentConfig,
+    endpoints: Vec<sentinelmesh_core::RpcEndpointConfig>,
     probe: &SolanaProbe,
     tracked_signatures: &[String],
 ) -> Vec<sentinelmesh_core::EndpointObservation> {
-    let endpoints = config.endpoints.clone();
     let tracked_accounts = config.tracked_accounts.clone();
     let tracked_signatures = tracked_signatures.to_vec();
     let validator_probes = config.validator_probes.clone();
@@ -415,6 +493,8 @@ async fn emit_canary_signature(config: &AgentConfig) -> Result<Option<String>> {
         sentinelmesh_core::CanaryMode::Disabled => Ok(None),
         sentinelmesh_core::CanaryMode::CliTransfer(canary) => {
             let amount = format!("{:.9}", canary.amount_sol);
+            let cu_price = canary.compute_unit_price.to_string();
+            let cu_limit = canary.compute_unit_limit.to_string();
             let output = tokio::process::Command::new(&canary.solana_cli_path)
                 .args([
                     "transfer",
@@ -424,6 +504,10 @@ async fn emit_canary_signature(config: &AgentConfig) -> Result<Option<String>> {
                     &canary.sender_keypair_path,
                     "--url",
                     &canary.rpc_url,
+                    "--with-compute-unit-price",
+                    &cu_price,
+                    "--with-compute-unit-limit",
+                    &cu_limit,
                     "--allow-unfunded-recipient",
                     "--output",
                     "json-compact",
@@ -446,6 +530,61 @@ async fn emit_canary_signature(config: &AgentConfig) -> Result<Option<String>> {
 
             let stdout = String::from_utf8_lossy(&output.stdout);
             parse_canary_signature(stdout.as_ref()).map(Some)
+        }
+        sentinelmesh_core::CanaryMode::SmartContract(canary) => {
+            let client_path = &canary.client_path;
+
+            // Hardening: Prevenir Command Injection / Path Traversal Execução Base.
+            // O caminho não pode conter espaços, e o basename DEVE ser nosso driver.
+            let path_obj = std::path::Path::new(client_path);
+            let file_name = path_obj
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
+            if file_name != "sentinelmesh-canary-client" {
+                bail!(
+                    "canary execution rejected: client_path MUST point to a 'sentinelmesh-canary-client' binary for security reasons (found: {file_name})"
+                );
+            }
+
+            let iterations = canary.hash_iterations.to_string();
+            let output = tokio::process::Command::new(client_path)
+                .args([
+                    "--rpc-url",
+                    &canary.rpc_url,
+                    "--keypair",
+                    &canary.sender_keypair_path,
+                    "--program-id",
+                    &canary.program_id,
+                    "--hash-iterations",
+                    &iterations,
+                ])
+                .output()
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to execute custom canary program via {}",
+                        canary.client_path
+                    )
+                })?;
+
+            if !output.status.success() {
+                bail!(
+                    "custom canary smart contract invocation failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let signature = stdout.trim().to_owned();
+
+            if signature.len() >= 64 && signature.chars().all(is_base58_character) {
+                Ok(Some(signature))
+            } else {
+                Err(anyhow!(
+                    "failed to parse valid canary signature from client output: {signature}"
+                ))
+            }
         }
     }
 }

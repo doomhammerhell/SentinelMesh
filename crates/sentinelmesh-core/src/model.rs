@@ -1,8 +1,7 @@
+use crate::config::RpcEndpointConfig;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use crate::config::RpcEndpointConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProbeBatch {
@@ -11,6 +10,8 @@ pub struct ProbeBatch {
     pub sampled_at: DateTime<Utc>,
     pub sentinel_id: String,
     pub sentinel_location: String,
+    #[serde(default)]
+    pub asn: Option<u32>,
     pub endpoints: Vec<EndpointObservation>,
 }
 
@@ -24,6 +25,7 @@ impl ProbeBatch {
                 sampled_at: self.sampled_at,
                 sentinel_id: self.sentinel_id.clone(),
                 sentinel_location: self.sentinel_location.clone(),
+                asn: self.asn,
                 observation,
             })
             .collect()
@@ -52,6 +54,8 @@ pub struct EndpointSample {
     pub sampled_at: DateTime<Utc>,
     pub sentinel_id: String,
     pub sentinel_location: String,
+    #[serde(default)]
+    pub asn: Option<u32>,
     pub observation: EndpointObservation,
 }
 
@@ -187,6 +191,7 @@ pub struct NetworkSnapshot {
     pub active_sentinels: usize,
     pub active_endpoints: usize,
     pub rpc_consistency_index: f64,
+    pub asn_hhi: f64,
     pub validator_state_divergence: ValidatorStateDivergence,
     pub infrastructure_concentration: InfrastructureConcentration,
     pub propagation: PropagationSummary,
@@ -280,7 +285,7 @@ pub struct Anomaly {
     pub summary: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum AnomalySeverity {
     Info,
@@ -302,4 +307,12 @@ pub struct IngestionResponse {
     pub endpoints_received: usize,
     pub received_at: DateTime<Utc>,
     pub persisted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum ControlMessage {
+    UpdateEndpoints { endpoints: Vec<RpcEndpointConfig> },
+    AddEndpoint { endpoint: RpcEndpointConfig },
+    RemoveEndpoint { id: String },
 }

@@ -100,6 +100,17 @@ impl BatchVerifier {
             })
             .ok_or_else(|| anyhow!("unknown signing key id {}", auth.key_id))?;
 
+        let now = chrono::Utc::now();
+        let drift = now
+            .signed_duration_since(auth.signed_at)
+            .num_seconds()
+            .abs();
+        if drift > 30 {
+            bail!(
+                "batch rejected: signed_at timestamp is outside the 30-second clock drift window (anti-replay protection)"
+            );
+        }
+
         let expected_hash = stable_hash(batch)?;
         if expected_hash != auth.batch_hash {
             bail!("batch hash mismatch for signed envelope");
