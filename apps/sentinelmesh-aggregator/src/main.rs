@@ -1,4 +1,7 @@
-use std::{fs::File, io::BufReader, path::PathBuf, sync::Arc};
+mod alert;
+mod control;
+
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -43,13 +46,15 @@ struct Cli {
 }
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     store: Arc<RwLock<MeshStore>>,
     storage: Arc<StorageEngine>,
     api_keys: Arc<Vec<String>>,
     verifier: Arc<BatchVerifier>,
     require_signed_batches: bool,
     metrics: PrometheusHandle,
+    alert_sink: Option<alert::AlertSink>,
+    control_tx: tokio::sync::broadcast::Sender<sentinelmesh_core::ControlMessage>,
 }
 
 #[tokio::main]
@@ -78,7 +83,7 @@ async fn main() -> Result<()> {
     storage.ensure_schema().await?;
     storage.replay_from_log().await?;
     let bootstrap_samples = storage
-        .hydrate_recent_samples(config.storage.database.bootstrap_window)
+        .hydrate_recent_samples(config.analysis.retention)
         .await?;
     store.write().replace_samples(bootstrap_samples);
 
@@ -96,6 +101,10 @@ async fn main() -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let alert_sink = config.alerts.clone().map(alert::AlertSink::new);
+
+    let (control_tx, _) = tokio::sync::broadcast::channel(100);
+
     let state = AppState {
         store: Arc::clone(&store),
         storage: Arc::clone(&storage),
@@ -103,13 +112,16 @@ async fn main() -> Result<()> {
         verifier: Arc::new(BatchVerifier::new(verifier)),
         require_signed_batches: config.ingestion.auth.require_signed_batches,
         metrics: metrics_handle.clone(),
+        alert_sink: alert_sink.clone(),
+        control_tx,
     };
 
     tokio::spawn(refresh_from_storage_loop(
         Arc::clone(&storage),
         Arc::clone(&store),
-        config.storage.database.refresh_interval,
+        config.storage.clickhouse.refresh_interval,
         config.analysis.retention,
+        alert_sink,
     ));
 
     let app = Router::new()
@@ -121,6 +133,8 @@ async fn main() -> Result<()> {
         .route("/v1/providers", get(providers))
         .route("/v1/signatures", get(signatures))
         .route("/v1/accounts", get(accounts))
+        .route("/v1/ws/control", get(control::ws_handler))
+        .route("/v1/admin/broadcast", post(control::admin_broadcast))
         .layer(DefaultBodyLimit::max(config.ingestion.max_batch_bytes))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
@@ -141,7 +155,7 @@ async fn main() -> Result<()> {
     } else {
         info!(
             bind_address = %config.server.bind_address,
-            max_db_connections = config.storage.database.max_connections,
+            database = %config.storage.clickhouse.database,
             "aggregator started without native TLS"
         );
         axum::serve(listener, app)
@@ -155,6 +169,7 @@ async fn refresh_from_storage_loop(
     store: Arc<RwLock<MeshStore>>,
     refresh_interval: std::time::Duration,
     retention: std::time::Duration,
+    alert_sink: Option<alert::AlertSink>,
 ) {
     let mut ticker = tokio::time::interval(refresh_interval);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -163,7 +178,14 @@ async fn refresh_from_storage_loop(
         ticker.tick().await;
         match storage.hydrate_recent_samples(retention).await {
             Ok(samples) => {
-                store.write().replace_samples(samples);
+                let snapshot = {
+                    let mut w = store.write();
+                    w.replace_samples(samples);
+                    w.snapshot()
+                };
+                if let Some(sink) = &alert_sink {
+                    sink.dispatch(snapshot.anomalies);
+                }
             }
             Err(error) => warn!(error = %error, "failed to refresh in-memory state from storage"),
         }
@@ -251,21 +273,17 @@ fn build_tls_server_config(security: &ServerSecurityConfig) -> Result<Option<Arc
 }
 
 fn load_certificates(path: &str) -> Result<Vec<CertificateDer<'static>>> {
-    let file =
-        File::open(path).with_context(|| format!("failed to open certificate file {path}"))?;
-    let mut reader = BufReader::new(file);
-    rustls_pemfile::certs(&mut reader)
+    use rustls::pki_types::pem::PemObject;
+    CertificateDer::pem_file_iter(path)
+        .with_context(|| format!("failed to open certificate file {path}"))?
         .collect::<std::result::Result<Vec<_>, _>>()
         .with_context(|| format!("failed to parse certificate PEM {path}"))
 }
 
 fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
-    let file =
-        File::open(path).with_context(|| format!("failed to open private key file {path}"))?;
-    let mut reader = BufReader::new(file);
-    rustls_pemfile::private_key(&mut reader)
-        .with_context(|| format!("failed to parse private key PEM {path}"))?
-        .ok_or_else(|| anyhow!("no private key found in {path}"))
+    use rustls::pki_types::pem::PemObject;
+    PrivateKeyDer::from_pem_file(path)
+        .with_context(|| format!("failed to parse private key PEM {path}"))
 }
 
 fn load_root_store(path: &str) -> Result<RootCertStore> {
@@ -317,6 +335,11 @@ async fn ingest(
     }
 
     let snapshot = state.store.read().snapshot();
+
+    if let Some(sink) = &state.alert_sink {
+        sink.dispatch(snapshot.anomalies.clone());
+    }
+
     gauge!("sentinelmesh_active_endpoints").set(usize_to_f64(snapshot.active_endpoints));
     gauge!("sentinelmesh_rpc_consistency_index").set(snapshot.rpc_consistency_index);
     gauge!("sentinelmesh_provider_hhi").set(snapshot.infrastructure_concentration.provider_hhi);
@@ -356,7 +379,7 @@ async fn accounts(State(state): State<AppState>) -> Json<Vec<AccountDivergence>>
     Json(state.store.read().account_divergences())
 }
 
-fn authorize(headers: &HeaderMap, api_keys: &[String]) -> Result<(), AppError> {
+pub fn authorize(headers: &HeaderMap, api_keys: &[String]) -> Result<(), AppError> {
     if api_keys.is_empty() {
         return Ok(());
     }
@@ -389,7 +412,7 @@ fn verify_envelope(state: &AppState, envelope: &ProbeEnvelope) -> Result<(), App
 }
 
 #[derive(Debug)]
-struct AppError {
+pub struct AppError {
     status: StatusCode,
     message: String,
 }

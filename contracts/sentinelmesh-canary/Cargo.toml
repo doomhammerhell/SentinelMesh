@@ -1,0 +1,11 @@
+[package]
+name = "sentinelmesh-canary"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-program = "1.18.26"
+borsh = "1.0.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]

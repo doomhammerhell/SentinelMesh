@@ -1,0 +1,12 @@
+[package]
+name = "sentinelmesh-canary-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = "1.18.26"
+solana-sdk = "1.18.26"
+clap = { version = "4.5", features = ["derive"] }
+borsh = "1.0.0"
+
+[workspace]

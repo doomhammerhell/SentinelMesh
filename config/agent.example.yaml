@@ -57,15 +57,7 @@ endpoints:
       tier: public
       network: devnet
 
-  # Uncomment for local reproducible testing with `solana-test-validator`.
-  # - id: local-validator
-  #   label: local-validator
-  #   provider: local
-  #   region: localhost
-  #   rpc_url: http://127.0.0.1:8899
-  #   tags:
-  #     tier: local
-  #     network: localnet
+  # Avoid localnet or mocks. Point to true public/private RPCs.
 
 tracked_accounts:
   - pubkey: 11111111111111111111111111111111

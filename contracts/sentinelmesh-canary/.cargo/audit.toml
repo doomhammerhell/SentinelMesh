@@ -1,0 +1,8 @@
+# These vulnerabilities are inherited from solana-program 1.18.x and cannot be
+# resolved without an upstream Solana SDK major version bump.
+# Tracked: https://github.com/solana-labs/solana/issues
+[advisories]
+ignore = [
+    # curve25519-dalek timing variability (solana-program pins 3.2.1)
+    "RUSTSEC-2024-0344",
+]

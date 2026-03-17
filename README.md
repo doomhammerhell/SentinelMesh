@@ -13,7 +13,10 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 - Samples validator-centric views such as identity, vote accounts, cluster nodes and leader schedule
 - Produces real-time integrity metrics and anomalies through a public aggregation API
 - Stores observations durably in PostgreSQL and replays local ingestion logs for crash recovery
-- Supports signed batches with key rotation and transport hardening hooks
+- Features a **Cyberpunk-themed Premium Dashboard** (`/`) for real-time visualization of Provider HHI and fleet telemetry
+- Supports hardware-isolated cryptographic signing via **AWS Nitro Enclaves** (TEEs)
+- Audits network Censorship Resistance deterministically via the **Canary DEX Smart Contract**
+- Orchestrates global agent topologies via an authenticated **WebSocket Control Plane**
 
 ## Workspace
 
@@ -38,16 +41,16 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 
 - PostgreSQL-backed durable ingestion
 - Idempotent batch persistence keyed by `batch_id`
-- Local replay log for bootstrap and crash recovery
+- **Agent Local WAL (`sled`)** with Ring Buffer Eviction (Zero-Day disk exhaustion protection)
 - Periodic in-memory state hydration from storage for stateless aggregator instances
 
-### Security
+### Security & Hardware Isolation
 
 - Signed ingestion envelopes with Ed25519
-- Key rotation through `key_id` and trusted signer sets
-- API-key auth for bootstrap environments
+- **AWS Nitro Enclaves (TEE)** integration for hardware-level private key isolation
+- API-key authenticated Control Plane (`/v1/admin/broadcast`) protecting against Remote Fleet Hijacking
+- Asynchronous **TCP Ping/Pong Keep-Alive** eliminating Half-Open Zombie connections
 - Native TLS/mTLS support in the aggregator process
-- Client TLS hooks for agent egress
 - Service-mesh mTLS manifests in `deploy/istio`
 
 ### Observability
@@ -62,6 +65,7 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 - Standard RPC probes
 - Validator-centric probes: `getIdentity`, `getVoteAccounts`, `getClusterNodes`, `getLeaderSchedule`
 - Canary transaction support via automated `solana transfer` execution
+- **Deterministic MEV Auditing** via the `sentinelmesh-canary-client` interacting with Compute-Unit intensive Smart Contracts
 
 ## Quickstart
 
@@ -93,7 +97,7 @@ Open:
 
 Aggregator:
 
-- `GET /`
+- `GET /` (Premium Analytics Dashboard)
 - `GET /healthz`
 - `GET /metrics`
 - `GET /v1/snapshot`
@@ -101,6 +105,8 @@ Aggregator:
 - `GET /v1/signatures`
 - `GET /v1/accounts`
 - `POST /v1/ingest`
+- `GET /v1/ws/control` (WebSocket Control Plane)
+- `POST /v1/admin/broadcast` (Requires `x-sentinelmesh-api-key`)
 
 Agent:
 

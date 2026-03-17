@@ -7,6 +7,10 @@ members = [
     "crates/sentinelmesh-solana",
     "crates/sentinelmesh-storage",
 ]
+exclude = [
+    "contracts/sentinelmesh-canary",
+    "contracts/sentinelmesh-canary-client"
+]
 resolver = "2"
 
 [workspace.package]
@@ -35,11 +39,11 @@ opentelemetry_sdk = { version = "0.28", features = ["rt-tokio"] }
 parking_lot = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
 rustls = "0.23"
-rustls-pemfile = "2.2"
+rustls-pki-types = { version = "1.14", features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+rskafka = "0.6"
 tempfile = "3.16"
 thiserror = "2.0"
 tokio = { version = "1.45", features = ["full"] }

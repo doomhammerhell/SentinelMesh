@@ -3,302 +3,643 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SentinelMesh</title>
+    <title>SentinelMesh | Command Center</title>
+    
+    <!-- Google Fonts for Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
       :root {
         color-scheme: dark;
-        --bg: #07131c;
-        --panel: rgba(11, 25, 36, 0.78);
-        --panel-border: rgba(125, 211, 252, 0.15);
-        --text: #e2edf7;
-        --muted: #9fb4c8;
-        --accent: #5eead4;
-        --warning: #fbbf24;
-        --critical: #fb7185;
-        --shadow: 0 32px 80px rgba(0, 0, 0, 0.35);
+        /* Cyberpunk / Glassmorphism Palette */
+        --bg-base: #06090e;
+        --panel-bg: rgba(13, 19, 31, 0.65);
+        --panel-border: rgba(94, 234, 212, 0.12);
+        
+        --text-pure: #ffffff;
+        --text-main: #e2edf7;
+        --text-muted: #8b9eb3;
+        
+        --brand-primary: #00f2fe;
+        --brand-secondary: #4facfe;
+        --accent-neon: #10e6a9;
+        
+        /* Status Colors */
+        --status-healthy: #10e6a9;
+        --status-healthy-glow: rgba(16, 230, 169, 0.4);
+        --status-warning: #fbbf24;
+        --status-critical: #f43f5e;
+        --status-critical-glow: rgba(244, 63, 94, 0.4);
+
+        --shadow-glow: 0 0 20px rgba(0, 242, 254, 0.1);
       }
 
-      * { box-sizing: border-box; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        margin: 0;
         min-height: 100vh;
-        font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
-        color: var(--text);
-        background:
-          radial-gradient(circle at top left, rgba(20, 83, 45, 0.22), transparent 28%),
-          radial-gradient(circle at top right, rgba(8, 145, 178, 0.22), transparent 30%),
-          linear-gradient(180deg, #091521 0%, var(--bg) 65%, #041018 100%);
+        font-family: 'Outfit', sans-serif;
+        color: var(--text-main);
+        background-color: var(--bg-base);
+        /* Animated Background Pattern */
+        background-image: 
+          radial-gradient(circle at 15% 50%, rgba(79, 172, 254, 0.08), transparent 25%),
+          radial-gradient(circle at 85% 30%, rgba(16, 230, 169, 0.06), transparent 25%),
+          linear-gradient(to bottom, #06090e, #030406);
+        background-attachment: fixed;
+        overflow-x: hidden;
       }
 
-      .shell {
-        width: min(1240px, calc(100% - 32px));
-        margin: 24px auto 48px;
-      }
-
-      .hero {
-        padding: 24px;
-        border: 1px solid var(--panel-border);
-        background: linear-gradient(145deg, rgba(10, 24, 35, 0.92), rgba(6, 17, 26, 0.78));
-        border-radius: 28px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
-        position: relative;
-      }
-
-      .hero::after {
+      /* Animated Grid overlay */
+      body::before {
         content: "";
-        position: absolute;
-        inset: auto -12% -55% 30%;
-        height: 320px;
-        background: radial-gradient(circle, rgba(94, 234, 212, 0.13), transparent 58%);
+        position: fixed;
+        top: 0; left: 0; width: 100vw; height: 100vh;
+        background-image: 
+          linear-gradient(rgba(255,255,255,0.01) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px);
+        background-size: 40px 40px;
+        z-index: -1;
         pointer-events: none;
       }
 
-      h1 {
-        margin: 0 0 8px;
-        font-size: clamp(2.2rem, 5vw, 4rem);
-        letter-spacing: -0.05em;
+      .shell {
+        width: min(1360px, calc(100% - 48px));
+        margin: 32px auto 64px;
+      }
+
+      /* HEADER HERO SECTION */
+      .hero {
+        padding: 36px 42px;
+        border: 1px solid var(--panel-border);
+        background: linear-gradient(135deg, rgba(16, 24, 38, 0.8), rgba(6, 11, 19, 0.85));
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 32px;
+      }
+
+      /* Animated glow orb behind hero */
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: -50px; right: -50px;
+        width: 300px; height: 300px;
+        background: radial-gradient(circle, rgba(0, 242, 254, 0.15), transparent 70%);
+        border-radius: 50%;
+        filter: blur(30px);
+        animation: pulse 6s infinite alternate ease-in-out;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.6; }
+        100% { transform: scale(1.2); opacity: 1; }
       }
 
       .eyebrow {
         text-transform: uppercase;
-        letter-spacing: 0.28em;
-        font-size: 0.78rem;
-        color: var(--accent);
+        letter-spacing: 0.3em;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, var(--brand-primary), var(--brand-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+        display: inline-block;
+      }
+
+      h1 {
+        font-size: clamp(2.5rem, 4vw, 3.5rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-pure);
+        margin-bottom: 12px;
       }
 
       .hero p {
-        max-width: 860px;
-        color: var(--muted);
-        line-height: 1.7;
-        margin-bottom: 0;
+        font-size: 1.05rem;
+        max-width: 800px;
+        color: var(--text-muted);
+        line-height: 1.6;
       }
 
-      .grid {
-        margin-top: 24px;
+      /* STATS GRID */
+      .grid-4 {
         display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        margin-top: 32px;
       }
 
+      /* COMPONENT: GLASS CARD */
       .card {
-        background: var(--panel);
+        background: var(--panel-bg);
         border: 1px solid var(--panel-border);
-        border-radius: 22px;
-        padding: 18px 18px 16px;
-        backdrop-filter: blur(14px);
-        box-shadow: var(--shadow);
+        border-radius: 20px;
+        padding: 24px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+        display: flex;
+        flex-direction: column;
       }
 
-      .metric {
-        font-size: 2rem;
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 242, 254, 0.08);
+        border-color: rgba(94, 234, 212, 0.25);
+      }
+
+      .card-title {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+
+      .metric-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 2.2rem;
         font-weight: 700;
-        letter-spacing: -0.04em;
-        margin-top: 8px;
+        color: var(--text-pure);
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
       }
 
-      .muted {
-        color: var(--muted);
+      .metric-unit {
+        font-size: 1rem;
+        color: var(--text-muted);
+        font-family: 'Outfit', sans-serif;
+      }
+
+      /* LAYOUT GRIDS */
+      .layout-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: 2fr 1.2fr;
+        margin-bottom: 24px;
+      }
+
+      @media (max-width: 1024px) {
+        .layout-grid { grid-template-columns: 1fr; }
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 12px;
       }
 
       .section-title {
-        margin: 0 0 14px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-pure);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: rgba(94, 234, 212, 0.1);
+        color: var(--accent-neon);
+        border: 1px solid rgba(94, 234, 212, 0.2);
+      }
+
+      /* LISTS & ROWS */
+      .kv-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .kv-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.03);
+      }
+
+      .kv-label {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      .kv-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
         font-size: 1.1rem;
+        color: var(--text-main);
       }
 
-      .stack {
-        display: grid;
-        gap: 16px;
-        margin-top: 24px;
+      /* ANOMALIES */
+      .anomaly-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 250px;
+        overflow-y: auto;
+        padding-right: 8px;
       }
 
-      .two-up {
-        display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      .anomaly-feed::-webkit-scrollbar { width: 6px; }
+      .anomaly-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+      .anomaly-card {
+        padding: 14px 16px;
+        border-radius: 12px;
+        border-left: 3px solid transparent;
+        background: rgba(0,0,0,0.2);
+        font-size: 0.9rem;
       }
 
-      .anomaly {
-        padding: 12px 14px;
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
-        margin-bottom: 10px;
+      .anomaly-card.warning { 
+        border-left-color: var(--status-warning);
+        background: linear-gradient(90deg, rgba(251, 191, 36, 0.05), transparent);
+      }
+      .anomaly-card.critical { 
+        border-left-color: var(--status-critical);
+        background: linear-gradient(90deg, rgba(244, 63, 94, 0.05), transparent);
+      }
+      .anomaly-card.info { 
+        border-left-color: var(--brand-secondary);
+        background: linear-gradient(90deg, rgba(79, 172, 254, 0.05), transparent);
       }
 
-      .anomaly.warning { border-color: rgba(251, 191, 36, 0.35); }
-      .anomaly.critical { border-color: rgba(251, 113, 133, 0.45); }
-      .anomaly.info { border-color: rgba(94, 234, 212, 0.32); }
+      .anomaly-code {
+        font-weight: 700;
+        color: var(--text-pure);
+        margin-bottom: 4px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* TABLES */
+      .table-container {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.05);
+      }
 
       table {
         width: 100%;
         border-collapse: collapse;
-      }
-
-      th, td {
         text-align: left;
-        padding: 12px 10px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-        font-size: 0.95rem;
       }
 
       th {
-        color: var(--muted);
+        background: rgba(0,0,0,0.4);
+        padding: 14px 16px;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
         font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        white-space: nowrap;
       }
 
-      .pill {
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        font-size: 0.95rem;
+        color: var(--text-main);
+        white-space: nowrap;
+      }
+
+      tbody tr {
+        transition: background 0.2s;
+      }
+
+      tbody tr:hover {
+        background: rgba(255,255,255,0.02);
+      }
+
+      td.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+
+      /* GLOWING STATUS DOTS */
+      .status {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(94, 234, 212, 0.08);
-        color: var(--accent);
-        font-size: 0.8rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: capitalize;
       }
 
-      @media (max-width: 760px) {
-        .shell { width: min(100% - 20px, 1240px); }
-        .hero, .card { border-radius: 20px; }
-        th, td { font-size: 0.86rem; padding: 10px 8px; }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        position: relative;
       }
+
+      .dot.healthy {
+        background: var(--status-healthy);
+        box-shadow: 0 0 8px var(--status-healthy-glow);
+      }
+
+      .dot.healthy::after {
+        content: ""; position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px;
+        border-radius: 50%; border: 1px solid var(--status-healthy);
+        animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+
+      .dot.degraded {
+        background: var(--status-warning);
+        box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+      }
+
+      @keyframes ping {
+        75%, 100% { transform: scale(2); opacity: 0; }
+      }
+
+      /* CHARTS CONTAINER */
+      .chart-container {
+        position: relative;
+        height: 250px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
     </style>
   </head>
   <body>
     <div class="shell">
+      <!-- HERO -->
       <section class="hero">
-        <div class="eyebrow">Distributed Observability Layer</div>
-        <h1>SentinelMesh</h1>
+        <div class="eyebrow">Enterprise Observability Layer</div>
+        <h1>SentinelMesh Command Center</h1>
         <p>
-          Independent sentinel nodes compare Solana RPC behavior across providers, quantify divergence,
-          and surface operational signals that matter for censorship resistance.
+          Real-time deterministic monitoring of the Solana global state. Detecting censorship, 
+          RPC divergence, and geographical routing anomalies across the provider ecosystem.
         </p>
-        <div class="grid">
-          <article class="card">
-            <div class="muted">RPC Consistency Index</div>
-            <div class="metric" id="consistency">--</div>
-          </article>
-          <article class="card">
-            <div class="muted">Active Endpoints</div>
-            <div class="metric" id="activeEndpoints">--</div>
-          </article>
-          <article class="card">
-            <div class="muted">Provider HHI</div>
-            <div class="metric" id="providerHhi">--</div>
-          </article>
-          <article class="card">
-            <div class="muted">P95 Propagation</div>
-            <div class="metric" id="propagation">--</div>
-          </article>
-        </div>
-      </section>
-
-      <section class="stack">
-        <div class="two-up">
-          <article class="card">
-            <div class="pill">Network snapshot</div>
-            <h2 class="section-title">Validator divergence</h2>
-            <table>
-              <tbody>
-                <tr><th>Slot spread</th><td id="slotSpread">--</td></tr>
-                <tr><th>Block height spread</th><td id="blockHeightSpread">--</td></tr>
-                <tr><th>Blockhash disagreement</th><td id="blockhashDisagreement">--</td></tr>
-                <tr><th>Account divergences</th><td id="accountDivergences">--</td></tr>
-              </tbody>
-            </table>
-          </article>
-          <article class="card">
-            <div class="pill">Operational signals</div>
-            <h2 class="section-title">Anomalies</h2>
-            <div id="anomalies" class="muted">Loading...</div>
-          </article>
-        </div>
-
-        <article class="card">
-          <div class="pill">Active endpoint view</div>
-          <h2 class="section-title">Providers</h2>
-          <div style="overflow-x:auto">
-            <table>
-              <thead>
-                <tr>
-                  <th>Provider</th>
-                  <th>Label</th>
-                  <th>Region</th>
-                  <th>Sentinel</th>
-                  <th>Slot</th>
-                  <th>Lag</th>
-                  <th>Latency</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="providers">
-                <tr><td colspan="8" class="muted">Loading...</td></tr>
-              </tbody>
-            </table>
+        
+        <div class="grid-4">
+          <div class="card">
+            <div class="card-title">Consistency Index</div>
+            <div class="metric-value" id="val-consistency">--<span class="metric-unit">%</span></div>
           </div>
-        </article>
+          <div class="card">
+            <div class="card-title">Active Fleet</div>
+            <div class="metric-value" id="val-endpoints">--<span class="metric-unit">nodes</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Infrastructure HHI</div>
+            <div class="metric-value" id="val-hhi">--<span class="metric-unit">idx</span></div>
+          </div>
+          <div class="card">
+            <div class="card-title">P95 Propagation</div>
+            <div class="metric-value" id="val-prop">--<span class="metric-unit">ms</span></div>
+          </div>
+        </div>
       </section>
+
+      <!-- MID SECTION -->
+      <div class="layout-grid">
+        <!-- LEFT: CHARTS -->
+        <div class="card">
+          <div class="section-header">
+            <h2 class="section-title">Provider Concentration (HHI)</h2>
+            <span class="badge">Live</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="hhiChart"></canvas>
+          </div>
+        </div>
+
+        <!-- RIGHT: DIVERGENCE & ANOMALIES -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div class="card" style="flex: 1;">
+            <div class="section-header">
+              <h2 class="section-title">State Divergence</h2>
+            </div>
+            <div class="kv-list">
+              <div class="kv-row">
+                <span class="kv-label">Slot Spread (Max-Min)</span>
+                <span class="kv-val" id="val-slot-spread">--</span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-label">Blockhash Disagreement</span>
+                <span class="kv-val" id="val-blockhash-disagree">--%</span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-label">Account Divergences</span>
+                <span class="kv-val" id="val-acc-diverge">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="flex: 1;">
+            <div class="section-header">
+              <h2 class="section-title">Active Anomalies</h2>
+              <span class="badge" id="anomaly-badge">0 Detects</span>
+            </div>
+            <div class="anomaly-feed" id="anomaly-list">
+              <div style="color: var(--text-muted); padding: 10px 0;">No anomalies detected in the current window. System nominal.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM SECTION: FLEET TABLE -->
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">Global Endpoints Telemetry</h2>
+          <span class="badge">Real-Time</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Provider</th>
+                <th>Label</th>
+                <th>Region</th>
+                <th>Sentinel Host</th>
+                <th>Observed Slot</th>
+                <th>Lag (Slots)</th>
+                <th>Latency</th>
+              </tr>
+            </thead>
+            <tbody id="fleet-table-body">
+              <tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--text-muted);">Syncing telemetry...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <script>
-      const formatPercent = (value) => `${(value * 100).toFixed(2)}%`;
-      const formatMs = (value) => value == null ? "--" : `${value} ms`;
-      const formatNumber = (value) => value == null ? "--" : value.toLocaleString();
+      // Global Chart Instance
+      let hhiChartInstance = null;
 
-      async function load() {
-        const [snapshotRes, providersRes] = await Promise.all([
-          fetch("/v1/snapshot"),
-          fetch("/v1/providers"),
-        ]);
-
-        if (!snapshotRes.ok || !providersRes.ok) {
-          document.getElementById("anomalies").textContent = "Failed to load SentinelMesh data.";
-          return;
-        }
-
-        const snapshot = await snapshotRes.json();
-        const providers = await providersRes.json();
-
-        document.getElementById("consistency").textContent = formatPercent(snapshot.rpc_consistency_index);
-        document.getElementById("activeEndpoints").textContent = formatNumber(snapshot.active_endpoints);
-        document.getElementById("providerHhi").textContent = snapshot.infrastructure_concentration.provider_hhi.toFixed(3);
-        document.getElementById("propagation").textContent = formatMs(snapshot.propagation.p95_window_ms);
-        document.getElementById("slotSpread").textContent = formatNumber(snapshot.validator_state_divergence.slot_spread);
-        document.getElementById("blockHeightSpread").textContent = formatNumber(snapshot.validator_state_divergence.block_height_spread);
-        document.getElementById("blockhashDisagreement").textContent = formatPercent(snapshot.validator_state_divergence.blockhash_disagreement_ratio);
-        document.getElementById("accountDivergences").textContent = formatNumber(snapshot.validator_state_divergence.account_divergence_count);
-
-        const anomalies = document.getElementById("anomalies");
-        anomalies.innerHTML = snapshot.anomalies.length
-          ? snapshot.anomalies.map((anomaly) => `
-              <div class="anomaly ${anomaly.severity}">
-                <strong>${anomaly.code}</strong>
-                <div class="muted">${anomaly.summary}</div>
-              </div>
-            `).join("")
-          : '<div class="muted">No active anomalies within the freshness window.</div>';
-
-        const tbody = document.getElementById("providers");
-        tbody.innerHTML = providers.length
-          ? providers.map((provider) => `
-              <tr>
-                <td>${provider.provider}</td>
-                <td>${provider.label}</td>
-                <td>${provider.region}</td>
-                <td>${provider.sentinel_location}</td>
-                <td>${formatNumber(provider.slot)}</td>
-                <td>${formatNumber(provider.slot_lag_from_max)}</td>
-                <td>${formatMs(provider.overall_latency_ms)}</td>
-                <td>${provider.healthy ? "healthy" : "degraded"}</td>
-              </tr>
-            `).join("")
-          : '<tr><td colspan="8" class="muted">No active provider observations.</td></tr>';
+      // Initialization of Chart.js
+      function initChart() {
+        const ctx = document.getElementById('hhiChart').getContext('2d');
+        Chart.defaults.color = '#8b9eb3';
+        Chart.defaults.font.family = "'Outfit', sans-serif";
+        
+        hhiChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Waiting for Data'],
+            datasets: [{
+              data: [100],
+              backgroundColor: ['rgba(255,255,255,0.05)'],
+              borderWidth: 0,
+              cutout: '75%',
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { padding: 20, usePointStyle: true, pointStyle: 'circle' }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(13, 19, 31, 0.9)',
+                titleFont: { size: 14, family: 'Outfit' },
+                bodyFont: { size: 13, family: 'Outfit' },
+                padding: 12,
+                borderColor: 'rgba(94, 234, 212, 0.2)',
+                borderWidth: 1
+              }
+            },
+            animation: { animateScale: true, animateRotate: true }
+          }
+        });
       }
 
-      load();
-      setInterval(load, 10000);
+      // Palette generator for charts
+      const chartColors = [
+        '#00f2fe', '#4facfe', '#10e6a9', '#fbbf24', '#f43f5e', 
+        '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#f97316'
+      ];
+
+      // Formatters
+      const fmtNum = (v) => v != null ? v.toLocaleString() : '--';
+      const fmtPct = (v) => v != null ? (v * 100).toFixed(2) : '--';
+
+      async function updateDashboard() {
+        try {
+          const [snapRes, provRes] = await Promise.all([
+            fetch('/v1/snapshot'),
+            fetch('/v1/providers')
+          ]);
+
+          if (!snapRes.ok || !provRes.ok) throw new Error("API Route failed");
+
+          const snap = await snapRes.json();
+          const provs = await provRes.json();
+
+          // 1. Update Hero Stats
+          document.getElementById('val-consistency').innerHTML = `${fmtPct(snap.rpc_consistency_index)}<span class="metric-unit">%</span>`;
+          document.getElementById('val-endpoints').innerHTML = `${fmtNum(snap.active_endpoints)}<span class="metric-unit"> nodes</span>`;
+          document.getElementById('val-hhi').innerHTML = `${snap.infrastructure_concentration.provider_hhi.toFixed(3)}<span class="metric-unit"> idx</span>`;
+          document.getElementById('val-prop').innerHTML = `${fmtNum(snap.propagation.p95_window_ms)}<span class="metric-unit"> ms</span>`;
+
+          // 2. Update Divergence KV List
+          document.getElementById('val-slot-spread').textContent = fmtNum(snap.validator_state_divergence.slot_spread);
+          document.getElementById('val-blockhash-disagree').textContent = fmtPct(snap.validator_state_divergence.blockhash_disagreement_ratio) + '%';
+          document.getElementById('val-acc-diverge').textContent = fmtNum(snap.validator_state_divergence.account_divergence_count);
+
+          // 3. Update Anomalies
+          const anomalyList = document.getElementById('anomaly-list');
+          document.getElementById('anomaly-badge').textContent = `${snap.anomalies.length} Detects`;
+          
+          if (snap.anomalies.length > 0) {
+            anomalyList.innerHTML = snap.anomalies.map(a => `
+              <div class="anomaly-card ${a.severity}">
+                <div class="anomaly-code">${a.code}</div>
+                <div class="anomaly-desc">${a.summary}</div>
+              </div>
+            `).join('');
+          } else {
+            anomalyList.innerHTML = `<div style="color: var(--text-muted); padding: 10px 0;">No anomalies detected. System nominal.</div>`;
+          }
+
+          // 4. Update Table
+          const tbody = document.getElementById('fleet-table-body');
+          if (provs.length > 0) {
+            tbody.innerHTML = provs.map(p => `
+              <tr>
+                <td>
+                  <div class="status">
+                    <span class="dot ${p.healthy ? 'healthy' : 'degraded'}"></span>
+                    ${p.healthy ? 'Healthy' : 'Degraded'}
+                  </div>
+                </td>
+                <td style="font-weight: 600; color: var(--text-pure);">${p.provider}</td>
+                <td>${p.label}</td>
+                <td style="color: var(--text-muted);">${p.region}</td>
+                <td class="mono">${p.sentinel_location}</td>
+                <td class="mono">${fmtNum(p.slot)}</td>
+                <td class="mono" style="color: ${p.slot_lag_from_max > 50 ? 'var(--status-critical)' : 'inherit'}">
+                   ${p.slot_lag_from_max === 0 ? '-' : `-${fmtNum(p.slot_lag_from_max)}`}
+                </td>
+                <td class="mono">${fmtNum(p.overall_latency_ms)} ms</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--text-muted);">No provider telemetry received in the freshness window.</td></tr>`;
+          }
+
+          // 5. Update Chart Data
+          if (hhiChartInstance) {
+            // Aggregate endpoints by provider to show share
+            const countMap = {};
+            provs.forEach(p => { countMap[p.provider] = (countMap[p.provider] || 0) + 1; });
+            
+            const labels = Object.keys(countMap).sort((a,b) => countMap[b] - countMap[a]);
+            const data = labels.map(l => countMap[l]);
+            
+            if (labels.length > 0) {
+              hhiChartInstance.data.labels = labels;
+              hhiChartInstance.data.datasets[0].data = data;
+              hhiChartInstance.data.datasets[0].backgroundColor = chartColors.slice(0, labels.length);
+            } else {
+              hhiChartInstance.data.labels = ['No Data'];
+              hhiChartInstance.data.datasets[0].data = [1];
+              hhiChartInstance.data.datasets[0].backgroundColor = ['rgba(255,255,255,0.05)'];
+            }
+            hhiChartInstance.update();
+          }
+
+        } catch (err) {
+          console.error("Dashboard Sync Error:", err);
+        }
+      }
+
+      // Bootstrap
+      document.addEventListener('DOMContentLoaded', () => {
+        initChart();
+        updateDashboard();
+        // Background polling
+        setInterval(updateDashboard, 5000);
+      });
     </script>
   </body>
 </html>
