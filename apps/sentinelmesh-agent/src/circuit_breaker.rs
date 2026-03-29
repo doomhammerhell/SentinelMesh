@@ -131,9 +131,9 @@ impl CircuitBreakerRegistry {
 
         // Ensure every endpoint has a circuit entry.
         for id in all_endpoint_ids {
-            circuits
-                .entry(id.clone())
-                .or_insert_with(|| EndpointCircuit::new(self.failure_threshold, self.recovery_interval));
+            circuits.entry(id.clone()).or_insert_with(|| {
+                EndpointCircuit::new(self.failure_threshold, self.recovery_interval)
+            });
         }
 
         let mut allowed: Vec<String> = Vec::new();
@@ -181,7 +181,6 @@ impl CircuitBreakerRegistry {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

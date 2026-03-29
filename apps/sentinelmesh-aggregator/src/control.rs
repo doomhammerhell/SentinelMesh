@@ -92,7 +92,6 @@ pub async fn admin_broadcast(
     Ok(Json("broadcasted"))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

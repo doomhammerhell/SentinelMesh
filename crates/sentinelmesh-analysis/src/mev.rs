@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use sentinelmesh_core::{
-    Anomaly, AnomalySeverity, MevAuditSummary, TransactionOrderObservation,
-};
+use sentinelmesh_core::{Anomaly, AnomalySeverity, MevAuditSummary, TransactionOrderObservation};
 
 /// Compute the Kendall tau distance between two orderings of the same items.
 ///
@@ -11,19 +9,14 @@ use sentinelmesh_core::{
 /// relative order differs between the two sequences.
 fn kendall_tau_distance(a: &[String], b: &[String]) -> usize {
     // Build a position map for ordering `b`.
-    let pos_b: BTreeMap<&str, usize> = b
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (s.as_str(), i))
-        .collect();
+    let pos_b: BTreeMap<&str, usize> = b.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
 
     let n = a.len();
     let mut discordant = 0;
     for i in 0..n {
         for j in (i + 1)..n {
             // Look up positions of a[i] and a[j] in b.
-            if let (Some(&bi), Some(&bj)) = (pos_b.get(a[i].as_str()), pos_b.get(a[j].as_str()))
-            {
+            if let (Some(&bi), Some(&bj)) = (pos_b.get(a[i].as_str()), pos_b.get(a[j].as_str())) {
                 // In `a`, item at index i comes before item at index j.
                 // In `b`, if bi > bj the pair is discordant.
                 if bi > bj {
@@ -161,7 +154,6 @@ pub fn analyse_mev(
     (summary, anomalies)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,10 +205,7 @@ mod tests {
         let b = vec!["1".to_owned(), "3".to_owned(), "2".to_owned()];
         let orderings: Vec<&[String]> = vec![&a, &b];
         let c = ordering_concordance(&orderings);
-        assert!(
-            (c - 2.0 / 3.0).abs() < 1e-10,
-            "expected ~0.667, got {c}"
-        );
+        assert!((c - 2.0 / 3.0).abs() < 1e-10, "expected ~0.667, got {c}");
     }
 
     // ---------------------------------------------------------------
@@ -345,17 +334,13 @@ mod tests {
     /// verification. Counts discordant pairs between two orderings of the
     /// same items.
     fn reference_kendall_tau(a: &[String], b: &[String]) -> usize {
-        let pos_b: std::collections::BTreeMap<&str, usize> = b
-            .iter()
-            .enumerate()
-            .map(|(i, s)| (s.as_str(), i))
-            .collect();
+        let pos_b: std::collections::BTreeMap<&str, usize> =
+            b.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
         let n = a.len();
         let mut disc = 0;
         for i in 0..n {
             for j in (i + 1)..n {
-                if let (Some(&bi), Some(&bj)) =
-                    (pos_b.get(a[i].as_str()), pos_b.get(a[j].as_str()))
+                if let (Some(&bi), Some(&bj)) = (pos_b.get(a[i].as_str()), pos_b.get(a[j].as_str()))
                 {
                     if bi > bj {
                         disc += 1;
@@ -368,10 +353,8 @@ mod tests {
 
     /// Independent reference implementation of pairwise concordance.
     fn reference_pairwise_concordance(a: &[String], b: &[String]) -> Option<f64> {
-        let set_a: std::collections::BTreeSet<&str> =
-            a.iter().map(String::as_str).collect();
-        let set_b: std::collections::BTreeSet<&str> =
-            b.iter().map(String::as_str).collect();
+        let set_a: std::collections::BTreeSet<&str> = a.iter().map(String::as_str).collect();
+        let set_b: std::collections::BTreeSet<&str> = b.iter().map(String::as_str).collect();
         let common: std::collections::BTreeSet<&str> =
             set_a.intersection(&set_b).copied().collect();
         let n = common.len();
@@ -405,9 +388,7 @@ mod tests {
         let mut count = 0_usize;
         for i in 0..orderings.len() {
             for j in (i + 1)..orderings.len() {
-                if let Some(c) =
-                    reference_pairwise_concordance(orderings[i], orderings[j])
-                {
+                if let Some(c) = reference_pairwise_concordance(orderings[i], orderings[j]) {
                     total += c;
                     count += 1;
                 }
@@ -422,11 +403,9 @@ mod tests {
 
     /// Strategy: generate a base ordering of N unique items (3-8 items),
     /// then produce a shuffled version via proptest's built-in shuffle.
-    fn arb_ordering_pair(
-    ) -> impl Strategy<Value = (Vec<String>, Vec<String>)> {
+    fn arb_ordering_pair() -> impl Strategy<Value = (Vec<String>, Vec<String>)> {
         (3usize..=8).prop_flat_map(|n| {
-            let base: Vec<String> =
-                (0..n).map(|i| format!("tx_{i}")).collect();
+            let base: Vec<String> = (0..n).map(|i| format!("tx_{i}")).collect();
             let base_clone = base.clone();
             // Use Just for the base and shuffle for the permuted version
             (Just(base), Just(base_clone).prop_shuffle())
@@ -435,35 +414,30 @@ mod tests {
 
     /// Strategy: generate 2-4 orderings of the same base items for a single
     /// slot, each a permutation of the base.
-    fn arb_orderings_for_slot(
-    ) -> impl Strategy<Value = Vec<Vec<String>>> {
+    fn arb_orderings_for_slot() -> impl Strategy<Value = Vec<Vec<String>>> {
         (3usize..=8).prop_flat_map(|n| {
-            let base: Vec<String> =
-                (0..n).map(|i| format!("tx_{i}")).collect();
+            let base: Vec<String> = (0..n).map(|i| format!("tx_{i}")).collect();
             prop::collection::vec(Just(base).prop_shuffle(), 2..=4)
         })
     }
 
     /// Strategy: generate TransactionOrderObservation sets for 1-3 slots,
     /// each with 2-4 endpoint orderings.
-    fn arb_mev_observations(
-    ) -> impl Strategy<Value = Vec<TransactionOrderObservation>> {
-        prop::collection::vec(
-            (1u64..=1000, arb_orderings_for_slot()),
-            1..=3,
-        )
-        .prop_map(|slot_data| {
-            let mut obs = Vec::new();
-            for (slot, orderings) in slot_data {
-                for ordering in orderings {
-                    obs.push(TransactionOrderObservation {
-                        slot,
-                        transaction_signatures: ordering,
-                    });
+    fn arb_mev_observations() -> impl Strategy<Value = Vec<TransactionOrderObservation>> {
+        prop::collection::vec((1u64..=1000, arb_orderings_for_slot()), 1..=3).prop_map(
+            |slot_data| {
+                let mut obs = Vec::new();
+                for (slot, orderings) in slot_data {
+                    for ordering in orderings {
+                        obs.push(TransactionOrderObservation {
+                            slot,
+                            transaction_signatures: ordering,
+                        });
+                    }
                 }
-            }
-            obs
-        })
+                obs
+            },
+        )
     }
 
     proptest! {
@@ -586,5 +560,4 @@ mod tests {
             );
         }
     }
-
 }

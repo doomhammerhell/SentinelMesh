@@ -377,9 +377,8 @@ mod tests {
 
     fn arb_datetime() -> impl Strategy<Value = DateTime<Utc>> {
         // Generate timestamps in a reasonable range (2020-2030)
-        (1_577_836_800i64..1_893_456_000i64).prop_map(|secs| {
-            DateTime::from_timestamp(secs, 0).unwrap_or_else(Utc::now)
-        })
+        (1_577_836_800i64..1_893_456_000i64)
+            .prop_map(|secs| DateTime::from_timestamp(secs, 0).unwrap_or_else(Utc::now))
     }
 
     fn arb_short_string() -> impl Strategy<Value = String> {
@@ -409,14 +408,16 @@ mod tests {
             "https?://[a-z]{3,8}\\.[a-z]{2,4}",
             prop::collection::btree_map(arb_short_string(), arb_short_string(), 0..3),
         )
-            .prop_map(|(id, label, provider, region, rpc_url, tags)| RpcEndpointConfig {
-                id,
-                label,
-                provider,
-                region,
-                rpc_url,
-                tags,
-            })
+            .prop_map(
+                |(id, label, provider, region, rpc_url, tags)| RpcEndpointConfig {
+                    id,
+                    label,
+                    provider,
+                    region,
+                    rpc_url,
+                    tags,
+                },
+            )
     }
 
     fn arb_blockhash_observation() -> impl Strategy<Value = BlockhashObservation> {
@@ -435,7 +436,12 @@ mod tests {
 
     fn arb_vote_accounts_observation() -> impl Strategy<Value = VoteAccountsObservation> {
         (any::<usize>(), any::<usize>(), any::<u64>(), any::<u64>()).prop_map(
-            |(current_vote_accounts, delinquent_vote_accounts, current_activated_stake, delinquent_activated_stake)| {
+            |(
+                current_vote_accounts,
+                delinquent_vote_accounts,
+                current_activated_stake,
+                delinquent_activated_stake,
+            )| {
                 VoteAccountsObservation {
                     current_vote_accounts,
                     delinquent_vote_accounts,
@@ -505,7 +511,19 @@ mod tests {
             prop::option::of(arb_short_string()),
         )
             .prop_map(
-                |(pubkey, commitment, slot, state_hash, lamports, owner, executable, rent_epoch, data_len, latency_ms, error)| {
+                |(
+                    pubkey,
+                    commitment,
+                    slot,
+                    state_hash,
+                    lamports,
+                    owner,
+                    executable,
+                    rent_epoch,
+                    data_len,
+                    latency_ms,
+                    error,
+                )| {
                     AccountObservation {
                         pubkey,
                         commitment,
@@ -551,23 +569,23 @@ mod tests {
             prop::option::of(arb_signature_status_observation()),
             prop::option::of(arb_short_string()),
         )
-            .prop_map(|(signature, latency_ms, status, error)| SignatureObservation {
-                signature,
-                latency_ms,
-                status,
-                error,
-            })
+            .prop_map(
+                |(signature, latency_ms, status, error)| SignatureObservation {
+                    signature,
+                    latency_ms,
+                    status,
+                    error,
+                },
+            )
     }
 
     fn arb_transaction_order_observation() -> impl Strategy<Value = TransactionOrderObservation> {
-        (
-            any::<u64>(),
-            prop::collection::vec(arb_hex_string(), 0..5),
-        )
-            .prop_map(|(slot, transaction_signatures)| TransactionOrderObservation {
+        (any::<u64>(), prop::collection::vec(arb_hex_string(), 0..5)).prop_map(
+            |(slot, transaction_signatures)| TransactionOrderObservation {
                 slot,
                 transaction_signatures,
-            })
+            },
+        )
     }
 
     fn arb_endpoint_observation() -> impl Strategy<Value = EndpointObservation> {
@@ -593,7 +611,19 @@ mod tests {
         );
         (probes, collections).prop_map(
             |(
-                (endpoint, overall_latency_ms, health, slot, block_height, latest_blockhash, version, identity, vote_accounts, cluster_nodes, leader_schedule),
+                (
+                    endpoint,
+                    overall_latency_ms,
+                    health,
+                    slot,
+                    block_height,
+                    latest_blockhash,
+                    version,
+                    identity,
+                    vote_accounts,
+                    cluster_nodes,
+                    leader_schedule,
+                ),
                 (accounts, signatures, probe_errors, transaction_order),
             )| {
                 EndpointObservation {
@@ -625,13 +655,15 @@ mod tests {
             arb_hex_string(),
             arb_hex_string(),
         )
-            .prop_map(|(signer_id, key_id, signed_at, batch_hash, signature_b64)| BatchAuth {
-                signer_id,
-                key_id,
-                signed_at,
-                batch_hash,
-                signature_b64,
-            })
+            .prop_map(
+                |(signer_id, key_id, signed_at, batch_hash, signature_b64)| BatchAuth {
+                    signer_id,
+                    key_id,
+                    signed_at,
+                    batch_hash,
+                    signature_b64,
+                },
+            )
     }
 
     fn arb_probe_batch() -> impl Strategy<Value = ProbeBatch> {
@@ -645,7 +677,15 @@ mod tests {
             prop::collection::vec(arb_endpoint_observation(), 0..3),
         )
             .prop_map(
-                |(schema_version, batch_id, sampled_at, sentinel_id, sentinel_location, asn, endpoints)| {
+                |(
+                    schema_version,
+                    batch_id,
+                    sampled_at,
+                    sentinel_id,
+                    sentinel_location,
+                    asn,
+                    endpoints,
+                )| {
                     ProbeBatch {
                         schema_version,
                         batch_id,
@@ -660,9 +700,8 @@ mod tests {
     }
 
     fn arb_probe_envelope() -> impl Strategy<Value = ProbeEnvelope> {
-        (arb_probe_batch(), prop::option::of(arb_batch_auth())).prop_map(|(batch, auth)| {
-            ProbeEnvelope { batch, auth }
-        })
+        (arb_probe_batch(), prop::option::of(arb_batch_auth()))
+            .prop_map(|(batch, auth)| ProbeEnvelope { batch, auth })
     }
 
     proptest! {

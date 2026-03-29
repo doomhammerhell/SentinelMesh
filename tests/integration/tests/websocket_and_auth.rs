@@ -162,10 +162,7 @@ fn test_reject_batch_without_api_key() {
         .iter()
         .any(|candidate| Some(candidate.as_str()) == provided);
 
-    assert!(
-        !is_authorized,
-        "request without API key should be rejected"
-    );
+    assert!(!is_authorized, "request without API key should be rejected");
 }
 
 /// Tests that a valid API key is accepted.
@@ -176,10 +173,7 @@ fn test_accept_batch_with_valid_api_key() {
     let api_keys = vec!["valid-key-123".to_string(), "valid-key-456".to_string()];
 
     let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        "x-sentinelmesh-api-key",
-        "valid-key-123".parse().unwrap(),
-    );
+    headers.insert("x-sentinelmesh-api-key", "valid-key-123".parse().unwrap());
 
     let provided = headers
         .get("x-sentinelmesh-api-key")
@@ -189,7 +183,10 @@ fn test_accept_batch_with_valid_api_key() {
         .iter()
         .any(|candidate| Some(candidate.as_str()) == provided);
 
-    assert!(is_authorized, "request with valid API key should be accepted");
+    assert!(
+        is_authorized,
+        "request with valid API key should be accepted"
+    );
 }
 
 /// Tests that an invalid API key is rejected.
@@ -200,10 +197,7 @@ fn test_reject_batch_with_invalid_api_key() {
     let api_keys = vec!["valid-key-123".to_string()];
 
     let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        "x-sentinelmesh-api-key",
-        "wrong-key-999".parse().unwrap(),
-    );
+    headers.insert("x-sentinelmesh-api-key", "wrong-key-999".parse().unwrap());
 
     let provided = headers
         .get("x-sentinelmesh-api-key")
@@ -244,12 +238,9 @@ fn test_accept_batch_with_valid_signature() {
 
     // Build verifier with the corresponding public key
     let pub_key_b64 = signer.verifying_key_base64();
-    let trusted = TrustedSigner::from_base64(
-        Some("test-signer".to_string()),
-        "test-key",
-        &pub_key_b64,
-    )
-    .expect("create trusted signer");
+    let trusted =
+        TrustedSigner::from_base64(Some("test-signer".to_string()), "test-key", &pub_key_b64)
+            .expect("create trusted signer");
 
     let verifier = BatchVerifier::new(vec![trusted]);
 
@@ -282,21 +273,15 @@ fn test_reject_batch_with_invalid_signature() {
 
     // Build verifier with the corresponding public key
     let pub_key_b64 = signer.verifying_key_base64();
-    let trusted = TrustedSigner::from_base64(
-        Some("test-signer".to_string()),
-        "test-key",
-        &pub_key_b64,
-    )
-    .expect("create trusted signer");
+    let trusted =
+        TrustedSigner::from_base64(Some("test-signer".to_string()), "test-key", &pub_key_b64)
+            .expect("create trusted signer");
 
     let verifier = BatchVerifier::new(vec![trusted]);
 
     // Verification should fail
     let result = verifier.verify(&batch, &auth);
-    assert!(
-        result.is_err(),
-        "tampered signature should be rejected"
-    );
+    assert!(result.is_err(), "tampered signature should be rejected");
 }
 
 /// Tests that a batch signed with an unknown key is rejected.
@@ -318,20 +303,15 @@ fn test_reject_batch_with_unknown_signer() {
         .expect("create signer B");
 
     let pub_key_b_b64 = signer_b.verifying_key_base64();
-    let trusted_b = TrustedSigner::from_base64(
-        Some("signer-b".to_string()),
-        "key-b",
-        &pub_key_b_b64,
-    )
-    .expect("create trusted signer B");
+    let trusted_b =
+        TrustedSigner::from_base64(Some("signer-b".to_string()), "key-b", &pub_key_b_b64)
+            .expect("create trusted signer B");
 
     let verifier = BatchVerifier::new(vec![trusted_b]);
 
     // Sign with key A
     let batch = make_batch("sentinel-unknown");
-    let auth = signer_a
-        .sign(&batch, Utc::now())
-        .expect("sign with key A");
+    let auth = signer_a.sign(&batch, Utc::now()).expect("sign with key A");
 
     // Verification should fail — key A is not trusted
     let result = verifier.verify(&batch, &auth);
@@ -347,10 +327,7 @@ fn test_reject_batch_with_unknown_signer() {
 #[test]
 fn test_reject_unsigned_batch_when_signatures_required() {
     let batch = make_batch("sentinel-unsigned");
-    let envelope = ProbeEnvelope {
-        batch,
-        auth: None,
-    };
+    let envelope = ProbeEnvelope { batch, auth: None };
 
     // Simulate require_signed_batches = true
     let require_signed = true;
@@ -374,10 +351,7 @@ fn test_reject_unsigned_batch_when_signatures_required() {
 #[test]
 fn test_accept_unsigned_batch_when_signatures_not_required() {
     let batch = make_batch("sentinel-unsigned-ok");
-    let envelope = ProbeEnvelope {
-        batch,
-        auth: None,
-    };
+    let envelope = ProbeEnvelope { batch, auth: None };
 
     let require_signed = false;
 

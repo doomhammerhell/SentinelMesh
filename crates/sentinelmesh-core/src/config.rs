@@ -112,7 +112,6 @@ pub struct AgentRuntimeConfig {
     pub circuit_breaker: CircuitBreakerConfig,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PublishConfig {
     pub ingestion_url: String,
@@ -291,7 +290,6 @@ pub struct AnalysisConfig {
     pub sliding_window_size: usize,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StorageConfig {
     pub kafka: KafkaConfig,
@@ -307,7 +305,6 @@ pub struct KafkaConfig {
     #[serde(default = "default_kafka_partitions")]
     pub partitions: u32,
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ClickHouseConfig {
@@ -328,7 +325,6 @@ pub struct ClickHouseConfig {
     #[serde(default = "default_max_refresh_interval_secs")]
     pub max_refresh_interval_secs: u64,
 }
-
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ObservabilityConfig {
@@ -364,7 +360,6 @@ pub struct AlertsConfig {
     #[serde(default = "default_rate_limit_window_secs")]
     pub rate_limit_window_secs: u64,
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct WebhookConfig {

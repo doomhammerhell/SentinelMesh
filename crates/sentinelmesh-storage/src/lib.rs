@@ -72,9 +72,7 @@ impl StorageEngine {
                 )
                 .await
                 .with_context(|| {
-                    format!(
-                        "failed to create partition client for partition {partition_idx}"
-                    )
+                    format!("failed to create partition client for partition {partition_idx}")
                 })?;
             partition_clients.push(pc);
         }
@@ -587,7 +585,10 @@ mod tests {
 
         writer.push("record".to_string());
         let outcome = writer.try_flush_on_timeout();
-        assert_eq!(outcome, None, "should not flush when timeout hasn't elapsed");
+        assert_eq!(
+            outcome, None,
+            "should not flush when timeout hasn't elapsed"
+        );
         assert_eq!(writer.buffer_len(), 1);
     }
 

@@ -132,11 +132,10 @@ impl MeshStore {
         // Track identity changes for each endpoint in the batch
         for obs in &batch.endpoints {
             if let Some(identity_obs) = &obs.identity.value {
-                if let Some(event) = self.identity_tracker.track(
-                    &obs.endpoint.id,
-                    &identity_obs.identity,
-                    timestamp,
-                ) {
+                if let Some(event) =
+                    self.identity_tracker
+                        .track(&obs.endpoint.id, &identity_obs.identity, timestamp)
+                {
                     self.pending_identity_anomalies.push(Anomaly {
                         severity: AnomalySeverity::Info,
                         code: "validator_identity_change".to_owned(),
@@ -275,90 +274,89 @@ impl MeshStore {
             .push(infrastructure_concentration.provider_hhi);
 
         // Compute z-scores and generate statistical anomalies
-        let (z_scores, z_score_anomalies) =
-            if self.detection_mode == DetectionMode::Statistical {
-                let slot_z = self.slot_spread_window.z_score(slot_spread as f64);
-                let bh_z = self
-                    .block_height_spread_window
-                    .z_score(block_height_spread as f64);
-                let lat_z = self.avg_latency_window.z_score(avg_latency);
-                let hhi_z = self
-                    .provider_hhi_window
-                    .z_score(infrastructure_concentration.provider_hhi);
+        let (z_scores, z_score_anomalies) = if self.detection_mode == DetectionMode::Statistical {
+            let slot_z = self.slot_spread_window.z_score(slot_spread as f64);
+            let bh_z = self
+                .block_height_spread_window
+                .z_score(block_height_spread as f64);
+            let lat_z = self.avg_latency_window.z_score(avg_latency);
+            let hhi_z = self
+                .provider_hhi_window
+                .z_score(infrastructure_concentration.provider_hhi);
 
-                let report = ZScoreReport {
-                    slot_spread_z: slot_z,
-                    block_height_spread_z: bh_z,
-                    avg_latency_z: lat_z,
-                    provider_hhi_z: hhi_z,
-                };
-
-                let mut z_anomalies = Vec::new();
-                if let Some(z) = slot_z {
-                    if z.abs() >= 3.0 {
-                        z_anomalies.push(Anomaly {
-                            severity: if z.abs() >= 4.0 {
-                                AnomalySeverity::Critical
-                            } else {
-                                AnomalySeverity::Warning
-                            },
-                            code: "zscore_slot_spread".to_owned(),
-                            summary: format!(
-                                "Slot spread z-score is {z:.2}, indicating statistical anomaly."
-                            ),
-                        });
-                    }
-                }
-                if let Some(z) = bh_z {
-                    if z.abs() >= 3.0 {
-                        z_anomalies.push(Anomaly {
-                            severity: if z.abs() >= 4.0 {
-                                AnomalySeverity::Critical
-                            } else {
-                                AnomalySeverity::Warning
-                            },
-                            code: "zscore_block_height_spread".to_owned(),
-                            summary: format!(
-                                "Block height spread z-score is {z:.2}, indicating statistical anomaly."
-                            ),
-                        });
-                    }
-                }
-                if let Some(z) = lat_z {
-                    if z.abs() >= 3.0 {
-                        z_anomalies.push(Anomaly {
-                            severity: if z.abs() >= 4.0 {
-                                AnomalySeverity::Critical
-                            } else {
-                                AnomalySeverity::Warning
-                            },
-                            code: "zscore_avg_latency".to_owned(),
-                            summary: format!(
-                                "Average latency z-score is {z:.2}, indicating statistical anomaly."
-                            ),
-                        });
-                    }
-                }
-                if let Some(z) = hhi_z {
-                    if z.abs() >= 3.0 {
-                        z_anomalies.push(Anomaly {
-                            severity: if z.abs() >= 4.0 {
-                                AnomalySeverity::Critical
-                            } else {
-                                AnomalySeverity::Warning
-                            },
-                            code: "zscore_provider_hhi".to_owned(),
-                            summary: format!(
-                                "Provider HHI z-score is {z:.2}, indicating statistical anomaly."
-                            ),
-                        });
-                    }
-                }
-
-                (Some(report), z_anomalies)
-            } else {
-                (None, Vec::new())
+            let report = ZScoreReport {
+                slot_spread_z: slot_z,
+                block_height_spread_z: bh_z,
+                avg_latency_z: lat_z,
+                provider_hhi_z: hhi_z,
             };
+
+            let mut z_anomalies = Vec::new();
+            if let Some(z) = slot_z {
+                if z.abs() >= 3.0 {
+                    z_anomalies.push(Anomaly {
+                        severity: if z.abs() >= 4.0 {
+                            AnomalySeverity::Critical
+                        } else {
+                            AnomalySeverity::Warning
+                        },
+                        code: "zscore_slot_spread".to_owned(),
+                        summary: format!(
+                            "Slot spread z-score is {z:.2}, indicating statistical anomaly."
+                        ),
+                    });
+                }
+            }
+            if let Some(z) = bh_z {
+                if z.abs() >= 3.0 {
+                    z_anomalies.push(Anomaly {
+                        severity: if z.abs() >= 4.0 {
+                            AnomalySeverity::Critical
+                        } else {
+                            AnomalySeverity::Warning
+                        },
+                        code: "zscore_block_height_spread".to_owned(),
+                        summary: format!(
+                            "Block height spread z-score is {z:.2}, indicating statistical anomaly."
+                        ),
+                    });
+                }
+            }
+            if let Some(z) = lat_z {
+                if z.abs() >= 3.0 {
+                    z_anomalies.push(Anomaly {
+                        severity: if z.abs() >= 4.0 {
+                            AnomalySeverity::Critical
+                        } else {
+                            AnomalySeverity::Warning
+                        },
+                        code: "zscore_avg_latency".to_owned(),
+                        summary: format!(
+                            "Average latency z-score is {z:.2}, indicating statistical anomaly."
+                        ),
+                    });
+                }
+            }
+            if let Some(z) = hhi_z {
+                if z.abs() >= 3.0 {
+                    z_anomalies.push(Anomaly {
+                        severity: if z.abs() >= 4.0 {
+                            AnomalySeverity::Critical
+                        } else {
+                            AnomalySeverity::Warning
+                        },
+                        code: "zscore_provider_hhi".to_owned(),
+                        summary: format!(
+                            "Provider HHI z-score is {z:.2}, indicating statistical anomaly."
+                        ),
+                    });
+                }
+            }
+
+            (Some(report), z_anomalies)
+        } else {
+            (None, Vec::new())
+        };
 
         let mut anomalies = build_anomalies(
             rpc_consistency_index,
@@ -1141,8 +1139,7 @@ mod tests {
         let snapshot = store.snapshot();
         // Only one endpoint has state_hash, so no divergence possible
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            0,
+            snapshot.validator_state_divergence.account_divergence_count, 0,
             "Observations without state_hash should be excluded from divergence analysis"
         );
         assert!(
@@ -1183,8 +1180,7 @@ mod tests {
 
         let snapshot = store.snapshot();
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            0,
+            snapshot.validator_state_divergence.account_divergence_count, 0,
             "Single endpoint should not produce divergence"
         );
     }
@@ -1235,8 +1231,7 @@ mod tests {
 
         let snapshot = store.snapshot();
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            1,
+            snapshot.validator_state_divergence.account_divergence_count, 1,
             "Should detect exactly 1 account divergence"
         );
 
@@ -1300,8 +1295,7 @@ mod tests {
 
         let snapshot = store.snapshot();
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            0,
+            snapshot.validator_state_divergence.account_divergence_count, 0,
             "Same state_hash across endpoints should not produce divergence"
         );
     }
@@ -1351,8 +1345,7 @@ mod tests {
 
         let snapshot = store.snapshot();
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            0,
+            snapshot.validator_state_divergence.account_divergence_count, 0,
             "All observations without state_hash should produce zero divergences"
         );
     }
@@ -1432,8 +1425,7 @@ mod tests {
 
         let snapshot = store.snapshot();
         assert_eq!(
-            snapshot.validator_state_divergence.account_divergence_count,
-            2,
+            snapshot.validator_state_divergence.account_divergence_count, 2,
             "Should detect divergences for both accounts"
         );
     }
@@ -1500,7 +1492,6 @@ mod tests {
         assert!(hashes.contains("state-X"));
         assert!(hashes.contains("state-Y"));
     }
-
 
     fn batch(
         sampled_at: chrono::DateTime<chrono::Utc>,
@@ -2288,11 +2279,16 @@ mod tests {
         let snap = store.snapshot();
         // Single endpoint → no divergence, but concentration should be detected
         assert!(
-            !snap.anomalies.iter().any(|a| a.code == "leader_schedule_divergence"),
+            !snap
+                .anomalies
+                .iter()
+                .any(|a| a.code == "leader_schedule_divergence"),
         );
         // valA holds 100% of slots → leader_concentration
         assert!(
-            snap.anomalies.iter().any(|a| a.code == "leader_concentration"),
+            snap.anomalies
+                .iter()
+                .any(|a| a.code == "leader_concentration"),
         );
     }
 
@@ -2331,7 +2327,10 @@ mod tests {
         ));
         let snap = store.snapshot();
         assert!(
-            !snap.anomalies.iter().any(|a| a.code == "leader_schedule_divergence"),
+            !snap
+                .anomalies
+                .iter()
+                .any(|a| a.code == "leader_schedule_divergence"),
             "Identical schedules should not produce divergence"
         );
     }
@@ -2372,7 +2371,9 @@ mod tests {
         ));
         let snap = store.snapshot();
         assert!(
-            snap.anomalies.iter().any(|a| a.code == "leader_schedule_divergence"),
+            snap.anomalies
+                .iter()
+                .any(|a| a.code == "leader_schedule_divergence"),
             "Divergent schedules should produce leader_schedule_divergence anomaly"
         );
         assert!(snap.leader_schedule_anomalies > 0);
@@ -2445,7 +2446,10 @@ mod tests {
         ));
         let snap = store.snapshot();
         assert!(
-            !snap.anomalies.iter().any(|a| a.code == "leader_concentration"),
+            !snap
+                .anomalies
+                .iter()
+                .any(|a| a.code == "leader_concentration"),
             "No validator holds > 10% of slots when evenly distributed across 11 validators"
         );
     }
@@ -2473,19 +2477,15 @@ mod tests {
                     "hash-1",
                     Some(schedule),
                 ),
-                endpoint_with_leader_schedule(
-                    "rpc-b",
-                    "ProviderB",
-                    100,
-                    90,
-                    "hash-1",
-                    None,
-                ),
+                endpoint_with_leader_schedule("rpc-b", "ProviderB", 100, 90, "hash-1", None),
             ],
         ));
         let snap = store.snapshot();
         assert!(
-            !snap.anomalies.iter().any(|a| a.code == "leader_schedule_divergence"),
+            !snap
+                .anomalies
+                .iter()
+                .any(|a| a.code == "leader_schedule_divergence"),
             "Endpoints without schedule should be excluded from divergence analysis"
         );
     }
@@ -2949,5 +2949,4 @@ mod tests {
             }
         }
     }
-
 }

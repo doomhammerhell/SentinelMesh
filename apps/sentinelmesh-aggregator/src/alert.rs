@@ -78,8 +78,14 @@ async fn alert_consumer_loop(
 
         // Process one batch from the front of the deque.
         if let Some(anomalies) = pending.pop_front() {
-            process_anomaly_batch(&anomalies, &config, &client, &mut last_sent, ratelimit_window)
-                .await;
+            process_anomaly_batch(
+                &anomalies,
+                &config,
+                &client,
+                &mut last_sent,
+                ratelimit_window,
+            )
+            .await;
         }
     }
 }

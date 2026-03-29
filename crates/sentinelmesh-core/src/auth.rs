@@ -184,9 +184,7 @@ fn signing_message(
 mod tests {
     use super::*;
     use crate::config::RpcEndpointConfig;
-    use crate::model::{
-        EndpointObservation, ProbeValue, ProbeBatch,
-    };
+    use crate::model::{EndpointObservation, ProbeBatch, ProbeValue};
     use proptest::prelude::*;
     use std::collections::BTreeMap;
     use uuid::Uuid;
@@ -209,14 +207,16 @@ mod tests {
             "https?://[a-z]{3,8}\\.[a-z]{2,4}",
             Just(BTreeMap::new()),
         )
-            .prop_map(|(id, label, provider, region, rpc_url, tags)| RpcEndpointConfig {
-                id,
-                label,
-                provider,
-                region,
-                rpc_url,
-                tags,
-            })
+            .prop_map(
+                |(id, label, provider, region, rpc_url, tags)| RpcEndpointConfig {
+                    id,
+                    label,
+                    provider,
+                    region,
+                    rpc_url,
+                    tags,
+                },
+            )
     }
 
     fn arb_endpoint_observation() -> impl Strategy<Value = EndpointObservation> {
@@ -247,8 +247,8 @@ mod tests {
             prop::option::of(any::<u32>()),
             prop::collection::vec(arb_endpoint_observation(), 0..3),
         )
-            .prop_map(|(schema_version, sentinel_id, sentinel_location, asn, endpoints)| {
-                ProbeBatch {
+            .prop_map(
+                |(schema_version, sentinel_id, sentinel_location, asn, endpoints)| ProbeBatch {
                     schema_version,
                     batch_id: Uuid::new_v4(),
                     sampled_at: Utc::now(),
@@ -256,8 +256,8 @@ mod tests {
                     sentinel_location,
                     asn,
                     endpoints,
-                }
-            })
+                },
+            )
     }
 
     proptest! {

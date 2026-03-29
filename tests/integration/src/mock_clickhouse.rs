@@ -85,9 +85,7 @@ async fn handle_query(
     }
 
     // Default: return empty success for INSERT/CREATE queries
-    if body.to_uppercase().starts_with("INSERT")
-        || body.to_uppercase().starts_with("CREATE")
-    {
+    if body.to_uppercase().starts_with("INSERT") || body.to_uppercase().starts_with("CREATE") {
         return Ok(String::new());
     }
 

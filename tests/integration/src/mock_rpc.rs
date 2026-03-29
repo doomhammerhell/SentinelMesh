@@ -38,10 +38,9 @@ impl MockRpcState {
 
     /// Register a canned response for a given JSON-RPC method.
     pub fn on_method(&self, method: &str, result: serde_json::Value) {
-        self.responses.write().insert(
-            method.to_string(),
-            CannedResponse { result },
-        );
+        self.responses
+            .write()
+            .insert(method.to_string(), CannedResponse { result });
     }
 
     /// Return how many times a method was called.

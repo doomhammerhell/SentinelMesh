@@ -84,8 +84,7 @@ impl SignerBackend for NitroEnclaveSigner {
 
         // Send length-prefixed payload: [4 bytes big-endian length][payload bytes]
         let payload_bytes = payload.as_bytes();
-        let len = u32::try_from(payload_bytes.len())
-            .context("payload length exceeds u32")?;
+        let len = u32::try_from(payload_bytes.len()).context("payload length exceeds u32")?;
         stream.write_all(&len.to_be_bytes()).await?;
         stream.write_all(payload_bytes).await?;
 
@@ -111,8 +110,6 @@ impl SignerBackend for NitroEnclaveSigner {
 #[async_trait]
 impl SignerBackend for NitroEnclaveSigner {
     async fn sign(&self, _batch: &ProbeBatch, _signed_at: DateTime<Utc>) -> Result<BatchAuth> {
-        anyhow::bail!(
-            "NitroEnclaveSigner is only supported on Linux with Nitro Enclaves"
-        )
+        anyhow::bail!("NitroEnclaveSigner is only supported on Linux with Nitro Enclaves")
     }
 }

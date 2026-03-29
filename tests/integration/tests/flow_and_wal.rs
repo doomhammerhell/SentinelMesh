@@ -58,10 +58,7 @@ fn make_batch(sentinel_id: &str, endpoints: Vec<EndpointObservation>) -> ProbeBa
 }
 
 fn make_envelope(batch: ProbeBatch) -> ProbeEnvelope {
-    ProbeEnvelope {
-        batch,
-        auth: None,
-    }
+    ProbeEnvelope { batch, auth: None }
 }
 
 // ---------------------------------------------------------------------------
@@ -83,14 +80,13 @@ fn test_complete_probe_ingest_and_analysis_flow() {
 
     // 2. Aggregator receives the envelope and ingests into MeshStore
     let mut store = MeshStore::new(
-        Duration::from_secs(3600),  // 1h retention
-        Duration::from_secs(300),   // 5min freshness
+        Duration::from_secs(3600), // 1h retention
+        Duration::from_secs(300),  // 5min freshness
     );
 
     // Verify the envelope can be serialized/deserialized (round-trip)
     let json = serde_json::to_string(&envelope).expect("serialize envelope");
-    let deserialized: ProbeEnvelope =
-        serde_json::from_str(&json).expect("deserialize envelope");
+    let deserialized: ProbeEnvelope = serde_json::from_str(&json).expect("deserialize envelope");
     assert_eq!(deserialized.batch.batch_id, envelope.batch.batch_id);
     assert_eq!(deserialized.batch.endpoints.len(), 2);
 
@@ -117,22 +113,17 @@ fn test_complete_probe_ingest_and_analysis_flow() {
 /// **Validates: Requirement 18.1**
 #[test]
 fn test_multiple_batches_accumulate_in_store() {
-    let mut store = MeshStore::new(
-        Duration::from_secs(3600),
-        Duration::from_secs(300),
-    );
+    let mut store = MeshStore::new(Duration::from_secs(3600), Duration::from_secs(300));
 
     // Sentinel A reports slot 100
-    let batch_a = make_batch("sentinel-a", vec![
-        make_endpoint("rpc-1", 100),
-        make_endpoint("rpc-2", 100),
-    ]);
+    let batch_a = make_batch(
+        "sentinel-a",
+        vec![make_endpoint("rpc-1", 100), make_endpoint("rpc-2", 100)],
+    );
     store.ingest(batch_a);
 
     // Sentinel B reports slot 101 (slight divergence)
-    let batch_b = make_batch("sentinel-b", vec![
-        make_endpoint("rpc-3", 101),
-    ]);
+    let batch_b = make_batch("sentinel-b", vec![make_endpoint("rpc-3", 101)]);
     store.ingest(batch_b);
 
     let snapshot = store.snapshot();
@@ -156,9 +147,7 @@ fn test_wal_failover_and_flush() {
     use sentinelmesh_integration_tests::mock_kafka::MockKafkaTopic;
 
     // 1. Agent creates a batch
-    let batch = make_batch("sentinel-wal", vec![
-        make_endpoint("rpc-1", 200),
-    ]);
+    let batch = make_batch("sentinel-wal", vec![make_endpoint("rpc-1", 200)]);
     let batch_json = serde_json::to_vec(&batch).expect("serialize batch");
 
     // 2. Simulate publish failure — batch goes to WAL (mock Kafka as WAL stand-in)
@@ -179,10 +168,7 @@ fn test_wal_failover_and_flush() {
     assert_eq!(recovered_batch.sentinel_id, "sentinel-wal");
 
     // 4. Flusher successfully delivers to MeshStore
-    let mut store = MeshStore::new(
-        Duration::from_secs(3600),
-        Duration::from_secs(300),
-    );
+    let mut store = MeshStore::new(Duration::from_secs(3600), Duration::from_secs(300));
     store.ingest(recovered_batch);
 
     let snapshot = store.snapshot();
@@ -211,10 +197,7 @@ fn test_in_memory_wal_persist_and_replay() {
     assert_eq!(wal.total_records(), 2);
 
     // Flusher replays all WAL entries into MeshStore
-    let mut store = MeshStore::new(
-        Duration::from_secs(3600),
-        Duration::from_secs(300),
-    );
+    let mut store = MeshStore::new(Duration::from_secs(3600), Duration::from_secs(300));
 
     for record in wal.consume(0, 0) {
         let batch: ProbeBatch = serde_json::from_slice(&record.value).unwrap();
@@ -236,7 +219,10 @@ fn test_wal_eviction_at_capacity() {
 
     // Fill WAL with 5 batches
     for i in 0..5 {
-        let batch = make_batch(&format!("sentinel-{i}"), vec![make_endpoint("rpc-1", 100 + i)]);
+        let batch = make_batch(
+            &format!("sentinel-{i}"),
+            vec![make_endpoint("rpc-1", 100 + i)],
+        );
         let json = serde_json::to_vec(&batch).unwrap();
         wal.produce(0, None, json);
     }
