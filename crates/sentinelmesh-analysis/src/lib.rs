@@ -1,3 +1,15 @@
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::for_kv_map)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::unnecessary_sort_by)]
+
 pub mod anomaly;
 pub mod mev;
 
@@ -5,7 +17,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     time::Duration,
 };
-
 use chrono::{DateTime, Utc};
 use sentinelmesh_core::{
     AccountDivergence, AccountStateVariant, Anomaly, AnomalySeverity, EndpointSample,
@@ -18,13 +29,14 @@ use crate::anomaly::{DetectionMode, SlidingWindow};
 
 /// Tracks validator identity changes per endpoint over time.
 pub struct ValidatorIdentityTracker {
-    /// Maps endpoint_id → list of identity change events.
+    /// Maps `endpoint_id` → list of identity change events.
     history: BTreeMap<String, Vec<IdentityChangeEvent>>,
-    /// Last known identity per endpoint_id.
+    /// Last known identity per `endpoint_id`.
     last_known: BTreeMap<String, String>,
 }
 
 impl ValidatorIdentityTracker {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             history: BTreeMap::new(),
@@ -65,6 +77,7 @@ impl ValidatorIdentityTracker {
     }
 
     /// Returns the full identity change history.
+    #[must_use]
     pub fn history(&self) -> &BTreeMap<String, Vec<IdentityChangeEvent>> {
         &self.history
     }
@@ -742,7 +755,7 @@ fn analyse_leader_schedule(active: &[&EndpointSample]) -> (usize, Vec<Anomaly>) 
     // Use the first available schedule as representative (or any — they should
     // be identical when no divergence exists).
     if let Some(schedule) = schedules.first() {
-        let total_slots: usize = schedule.values().map(|slots| slots.len()).sum();
+        let total_slots: usize = schedule.values().map(Vec::len).sum();
         if total_slots > 0 {
             for (validator, slots) in *schedule {
                 let share = slots.len() as f64 / total_slots as f64;
@@ -2224,7 +2237,7 @@ mod tests {
                 validators: schedule.as_ref().map_or(0, |s| s.len()),
                 total_leader_slots: schedule
                     .as_ref()
-                    .map_or(0, |s| s.values().map(|v| v.len()).sum()),
+                    .map_or(0, |s| s.values().map(Vec::len).sum()),
                 schedule,
             },
             5,
@@ -2781,7 +2794,7 @@ mod tests {
 
                 // (a) Verify IdentityChangeEvents are registered
                 let history = store.validator_history();
-                let total_events: usize = history.values().map(|v| v.len()).sum();
+                let total_events: usize = history.values().map(Vec::len).sum();
                 prop_assert_eq!(
                     total_events,
                     expected_changes,

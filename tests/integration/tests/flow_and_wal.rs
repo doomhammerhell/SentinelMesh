@@ -1,3 +1,8 @@
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::default_trait_access)]
 //! Integration tests for the complete probe flow and WAL failover.
 //!
 //! **Validates: Requirements 18.1, 18.2**

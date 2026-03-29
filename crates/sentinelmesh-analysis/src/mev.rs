@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss)]
+
 use std::collections::BTreeMap;
 
 use sentinelmesh_core::{Anomaly, AnomalySeverity, MevAuditSummary, TransactionOrderObservation};
@@ -30,8 +32,8 @@ fn kendall_tau_distance(a: &[String], b: &[String]) -> usize {
 
 /// Compute the concordance between two orderings of the same items.
 ///
-/// Concordance = 1 - (tau_distance / max_distance) where
-/// max_distance = n*(n-1)/2.
+/// Concordance = 1 - (`tau_distance` / `max_distance`) where
+/// `max_distance` = n*(n-1)/2.
 ///
 /// Returns `None` when the orderings have fewer than 2 common items (no pairs
 /// to compare).
@@ -74,6 +76,7 @@ fn pairwise_concordance(a: &[String], b: &[String]) -> Option<f64> {
 /// normalised Kendall tau distance.
 ///
 /// Returns `1.0` when there are fewer than 2 orderings (nothing to compare).
+#[must_use]
 pub fn ordering_concordance(orderings: &[&[String]]) -> f64 {
     if orderings.len() < 2 {
         return 1.0;
@@ -103,6 +106,7 @@ pub fn ordering_concordance(orderings: &[&[String]]) -> f64 {
 ///
 /// Slots without transaction data or with observations from a single endpoint
 /// are silently skipped (no error generated).
+#[must_use]
 pub fn analyse_mev(
     observations: &[TransactionOrderObservation],
 ) -> (MevAuditSummary, Vec<Anomaly>) {

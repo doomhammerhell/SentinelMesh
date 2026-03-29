@@ -402,7 +402,7 @@ impl SolanaProbe {
 
             match response {
                 Ok(context) => {
-                    for (account_config, account) in accounts.iter().zip(context.value.into_iter())
+                    for (account_config, account) in accounts.iter().zip(context.value)
                     {
                         let observation = match account {
                             Some(account) => {
@@ -487,7 +487,7 @@ impl SolanaProbe {
         match response {
             Ok(statuses) => tracked_signatures
                 .iter()
-                .zip(statuses.into_iter())
+                .zip(statuses)
                 .map(|(signature, status)| SignatureObservation {
                     signature: signature.clone(),
                     latency_ms,

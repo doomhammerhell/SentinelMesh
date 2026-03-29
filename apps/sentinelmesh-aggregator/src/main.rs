@@ -1,3 +1,9 @@
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::must_use_candidate)]
+#![allow(dead_code)]
+
 mod alert;
 mod control;
 

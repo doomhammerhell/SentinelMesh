@@ -1,3 +1,6 @@
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -93,6 +96,7 @@ impl DiskQueue {
 
 /// A simple in-memory WAL model for testing eviction behaviour.
 /// Mirrors the eviction semantics of `DiskQueue` without disk I/O.
+#[cfg(test)]
 pub struct InMemoryWal {
     entries: std::collections::VecDeque<(u64, Vec<u8>)>,
     max_entries: usize,
@@ -100,6 +104,7 @@ pub struct InMemoryWal {
     pub eviction_count: u64,
 }
 
+#[cfg(test)]
 impl InMemoryWal {
     pub fn new(max_entries: usize) -> Self {
         Self {
@@ -124,6 +129,7 @@ impl InMemoryWal {
         self.entries.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }

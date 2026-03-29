@@ -1,3 +1,6 @@
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_truncation)]
+
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
@@ -14,6 +17,7 @@ use tracing::warn;
 /// Deterministically select a partition for a given key using blake3 hash.
 ///
 /// Returns a partition index in `[0, num_partitions)`.
+#[must_use]
 pub fn partition_for_key(key: &str, num_partitions: u32) -> i32 {
     if num_partitions <= 1 {
         return 0;
@@ -333,7 +337,7 @@ pub enum FlushOutcome {
 /// either `batch_size` is reached or `batch_timeout` has elapsed.
 ///
 /// The actual write operation is delegated to a caller-supplied closure /
-/// function so that the struct can be tested independently of ClickHouse.
+/// function so that the struct can be tested independently of `ClickHouse`.
 pub struct ClickHouseBatchWriter<F>
 where
     F: FnMut(&[String]) -> Result<()>,
@@ -354,7 +358,7 @@ where
     ///
     /// * `batch_size`    – flush when the buffer reaches this many records.
     /// * `batch_timeout` – flush when this duration has elapsed since the last flush.
-    /// * `flush_fn`      – the function that performs the actual write (e.g. ClickHouse INSERT).
+    /// * `flush_fn`      – the function that performs the actual write (e.g. `ClickHouse` INSERT).
     pub fn new(batch_size: usize, batch_timeout: Duration, flush_fn: F) -> Self {
         Self {
             buffer: Vec::new(),
@@ -405,20 +409,17 @@ where
         }
 
         let start = Instant::now();
-        match (self.flush_fn)(&self.buffer) {
-            Ok(()) => {
-                let elapsed = start.elapsed();
-                self.metrics.last_flush_latency_ms = elapsed.as_millis() as u64;
-                self.buffer.clear();
-                self.metrics.buffer_size = 0;
-                self.last_flush = Instant::now();
-                FlushOutcome::Success
-            }
-            Err(_) => {
-                self.metrics.flush_failures_total += 1;
-                // Records are retained in the buffer for retry.
-                FlushOutcome::Failure
-            }
+        if let Ok(()) = (self.flush_fn)(&self.buffer) {
+            let elapsed = start.elapsed();
+            self.metrics.last_flush_latency_ms = elapsed.as_millis() as u64;
+            self.buffer.clear();
+            self.metrics.buffer_size = 0;
+            self.last_flush = Instant::now();
+            FlushOutcome::Success
+        } else {
+            self.metrics.flush_failures_total += 1;
+            // Records are retained in the buffer for retry.
+            FlushOutcome::Failure
         }
     }
 
@@ -527,7 +528,7 @@ mod tests {
             );
 
             for i in 0..num_records {
-                let record = format!("{{\"id\":{}}}", i);
+                let record = format!("{{\"id\":{i}}}");
                 writer.push(record);
             }
 
@@ -561,7 +562,7 @@ mod tests {
             );
 
             for i in 0..num_records {
-                writer.push(format!("{{\"id\":{}}}", i));
+                writer.push(format!("{{\"id\":{i}}}"));
             }
 
             // Buffer should still have records (batch_size not reached)
@@ -629,7 +630,7 @@ mod tests {
 
             // Insert records
             for i in 0..num_records {
-                writer.push(format!("{{\"id\":{}}}", i));
+                writer.push(format!("{{\"id\":{i}}}"));
             }
             prop_assert_eq!(writer.buffer_len(), num_records);
 
@@ -650,7 +651,7 @@ mod tests {
             let contents = writer.buffer_contents();
             prop_assert_eq!(contents.len(), num_records);
             for (i, record) in contents.iter().enumerate() {
-                prop_assert_eq!(record, &format!("{{\"id\":{}}}", i));
+                prop_assert_eq!(record, &format!("{{\"id\":{i}}}"));
             }
 
             // Now allow flush to succeed — retry should work
@@ -686,7 +687,7 @@ mod tests {
             );
 
             for i in 0..num_records {
-                writer.push(format!("{{\"id\":{}}}", i));
+                writer.push(format!("{{\"id\":{i}}}"));
             }
 
             // Fail num_failures times — buffer must retain all records each time

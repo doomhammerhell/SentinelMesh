@@ -50,6 +50,7 @@ pub struct NitroEnclaveSigner {
 }
 
 impl NitroEnclaveSigner {
+    #[must_use]
     pub fn new(config: &NitroEnclaveConfig) -> Self {
         Self {
             signer_id: config.signer_id.clone(),

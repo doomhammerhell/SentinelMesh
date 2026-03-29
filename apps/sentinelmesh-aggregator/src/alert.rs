@@ -163,11 +163,13 @@ async fn process_anomaly_batch(
 
 /// A synchronous, deterministic rate limiter for testing purposes.
 /// Tracks the last dispatch time per anomaly code.
+#[cfg(test)]
 pub struct RateLimiter {
     window: Duration,
     last_sent: HashMap<String, std::time::Instant>,
 }
 
+#[cfg(test)]
 impl RateLimiter {
     pub fn new(window: Duration) -> Self {
         Self {
@@ -191,11 +193,13 @@ impl RateLimiter {
 
 /// A bounded buffer that drops the oldest entries when full.
 /// Used for backpressure testing.
+#[cfg(test)]
 pub struct BoundedBuffer<T> {
     inner: VecDeque<T>,
     capacity: usize,
 }
 
+#[cfg(test)]
 impl<T> BoundedBuffer<T> {
     pub fn new(capacity: usize) -> Self {
         Self {

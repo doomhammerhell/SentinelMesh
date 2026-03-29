@@ -13,7 +13,7 @@ pub enum CircuitState {
 }
 
 impl CircuitState {
-    /// Numeric value for Prometheus gauge: 0=closed, 1=open, 2=half_open.
+    /// Numeric value for Prometheus gauge: `0=closed`, `1=open`, `2=half_open`.
     fn metric_value(self) -> f64 {
         match self {
             CircuitState::Closed => 0.0,
@@ -34,6 +34,7 @@ pub struct EndpointCircuit {
 }
 
 impl EndpointCircuit {
+    #[must_use]
     pub fn new(failure_threshold: u32, recovery_interval: Duration) -> Self {
         Self {
             state: CircuitState::Closed,
@@ -44,6 +45,7 @@ impl EndpointCircuit {
         }
     }
 
+    #[must_use]
     pub fn state(&self) -> CircuitState {
         self.state
     }
@@ -55,7 +57,7 @@ impl EndpointCircuit {
     /// - `HalfOpen`: allow the single verification probe.
     pub fn should_probe(&mut self) -> bool {
         match self.state {
-            CircuitState::Closed => true,
+            CircuitState::Closed | CircuitState::HalfOpen => true,
             CircuitState::Open => {
                 if self.last_attempt.elapsed() >= self.recovery_interval {
                     self.state = CircuitState::HalfOpen;
@@ -64,7 +66,6 @@ impl EndpointCircuit {
                     false
                 }
             }
-            CircuitState::HalfOpen => true,
         }
     }
 
@@ -114,6 +115,7 @@ pub struct CircuitBreakerRegistry {
 }
 
 impl CircuitBreakerRegistry {
+    #[must_use]
     pub fn new(failure_threshold: u32, recovery_interval: Duration) -> Self {
         Self {
             circuits: RwLock::new(HashMap::new()),

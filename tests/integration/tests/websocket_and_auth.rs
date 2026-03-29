@@ -1,3 +1,7 @@
+#![allow(clippy::useless_vec)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::default_trait_access)]
 //! Integration tests for WebSocket control plane and authentication.
 //!
 //! **Validates: Requirements 18.3, 18.4**

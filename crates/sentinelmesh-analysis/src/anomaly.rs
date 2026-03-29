@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss)]
+
 use std::collections::VecDeque;
 
 /// Detection mode for anomaly analysis.
@@ -23,6 +25,7 @@ impl SlidingWindow {
     ///
     /// # Panics
     /// Panics if `max_size` is 0.
+    #[must_use]
     pub fn new(max_size: usize) -> Self {
         assert!(max_size > 0, "max_size must be > 0");
         Self {
@@ -41,16 +44,19 @@ impl SlidingWindow {
     }
 
     /// Number of values currently stored.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.values.len()
     }
 
     /// Whether the window is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 
     /// Arithmetic mean of the stored values. Returns `0.0` when empty.
+    #[must_use]
     pub fn mean(&self) -> f64 {
         if self.values.is_empty() {
             return 0.0;
@@ -61,6 +67,7 @@ impl SlidingWindow {
 
     /// Population standard deviation of the stored values. Returns `0.0` when
     /// empty.
+    #[must_use]
     pub fn std_dev(&self) -> f64 {
         if self.values.is_empty() {
             return 0.0;
@@ -84,6 +91,7 @@ impl SlidingWindow {
     /// - the window contains fewer than 30 samples (caller should fall back to
     ///   `Fixed` mode), or
     /// - the standard deviation is effectively zero (< `f64::EPSILON`).
+    #[must_use]
     pub fn z_score(&self, value: f64) -> Option<f64> {
         if self.values.len() < 30 {
             return None;
@@ -260,7 +268,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "max_size must be > 0")]
     fn new_window_panics_on_zero_max_size() {
-        SlidingWindow::new(0);
+        let _ = SlidingWindow::new(0);
     }
 
     // ---------------------------------------------------------------
