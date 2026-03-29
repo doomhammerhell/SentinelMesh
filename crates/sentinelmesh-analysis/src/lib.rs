@@ -13,16 +13,16 @@
 pub mod anomaly;
 pub mod mev;
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    time::Duration,
-};
 use chrono::{DateTime, Utc};
 use sentinelmesh_core::{
     AccountDivergence, AccountStateVariant, Anomaly, AnomalySeverity, EndpointSample,
     IdentityChangeEvent, InfrastructureConcentration, NetworkSnapshot, ProbeBatch,
     PropagationSummary, ProviderShare, ProviderStatus, SignaturePropagation,
     ValidatorStateDivergence, ZScoreReport,
+};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Duration,
 };
 
 use crate::anomaly::{DetectionMode, SlidingWindow};

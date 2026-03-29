@@ -402,8 +402,7 @@ impl SolanaProbe {
 
             match response {
                 Ok(context) => {
-                    for (account_config, account) in accounts.iter().zip(context.value)
-                    {
+                    for (account_config, account) in accounts.iter().zip(context.value) {
                         let observation = match account {
                             Some(account) => {
                                 let state_hash =
