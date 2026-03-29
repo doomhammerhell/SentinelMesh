@@ -77,10 +77,7 @@ impl SignerBackend for NitroEnclaveSigner {
 
         let mut stream = tokio::time::timeout(
             Duration::from_secs(5),
-            VsockStream::connect(tokio_vsock::VsockAddr::new(
-                self.vsock_cid,
-                self.vsock_port,
-            )),
+            VsockStream::connect(tokio_vsock::VsockAddr::new(self.vsock_cid, self.vsock_port)),
         )
         .await
         .context("VSOCK connect timeout")?
