@@ -48,6 +48,7 @@ fn benchmark_snapshot(c: &mut Criterion) {
                     accounts: Vec::new(),
                     signatures: Vec::new(),
                     probe_errors: Vec::new(),
+                    transaction_order: Vec::new(),
                 })
                 .collect(),
         });

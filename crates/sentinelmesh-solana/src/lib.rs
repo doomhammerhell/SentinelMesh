@@ -116,6 +116,7 @@ impl SolanaProbe {
             accounts,
             signatures,
             probe_errors,
+            transaction_order: Vec::new(),
         }
     }
 
@@ -343,6 +344,7 @@ impl SolanaProbe {
                 LeaderScheduleObservation {
                     validators: result.len(),
                     total_leader_slots: result.values().map(Vec::len).sum(),
+                    schedule: None,
                 },
                 saturating_elapsed_ms(started_at.elapsed()),
             ),

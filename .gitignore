@@ -2,3 +2,8 @@
 /.DS_Store
 *.log
 *.ndjson
+.keys/
+.kiro  
+.gitignore
+scripts
+.vscode

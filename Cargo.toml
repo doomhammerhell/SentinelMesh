@@ -6,10 +6,11 @@ members = [
     "crates/sentinelmesh-core",
     "crates/sentinelmesh-solana",
     "crates/sentinelmesh-storage",
+    "contracts/sentinelmesh-canary-client",
+    "tests/integration",
 ]
 exclude = [
     "contracts/sentinelmesh-canary",
-    "contracts/sentinelmesh-canary-client"
 ]
 resolver = "2"
 
@@ -37,6 +38,7 @@ opentelemetry = "0.28"
 opentelemetry-otlp = { version = "0.28", features = ["grpc-tonic"] }
 opentelemetry_sdk = { version = "0.28", features = ["rt-tokio"] }
 parking_lot = "0.12"
+proptest = "1.6"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls"] }
 rustls = "0.23"
 rustls-pki-types = { version = "1.14", features = ["std"] }

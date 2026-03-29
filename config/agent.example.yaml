@@ -41,6 +41,13 @@ canary:
     # recipient_pubkey: 11111111111111111111111111111111
     # amount_sol: 0.000001
 
+    # Example for MEV canary via on-chain smart contract:
+    # type: smart_contract
+    # rpc_url: https://api.devnet.solana.com
+    # sender_keypair_path: /etc/sentinelmesh/devnet-canary.json
+    # program_id: GPtsqUwZH4uh5BLg2sqPkLhPVcFuhQ4HfG84DSwWZmra
+    # hash_iterations: 100000
+
 validator_probes:
   include_identity: true
   include_vote_accounts: true

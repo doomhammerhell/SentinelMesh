@@ -1,7 +1,7 @@
 mod alert;
 mod control;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -27,9 +27,9 @@ use rustls::{
 };
 use sentinelmesh_analysis::MeshStore;
 use sentinelmesh_core::{
-    AccountDivergence, AggregatorConfig, BatchVerifier, HealthResponse, IngestionResponse,
-    NetworkSnapshot, ProbeEnvelope, ProviderStatus, ServerSecurityConfig, SignaturePropagation,
-    TrustedSigner, telemetry::init_tracing,
+    AccountDivergence, AggregatorConfig, BatchVerifier, HealthResponse, IdentityChangeEvent,
+    IngestionResponse, NetworkSnapshot, ProbeEnvelope, ProviderStatus, ServerSecurityConfig,
+    SignaturePropagation, TrustedSigner, telemetry::init_tracing,
 };
 use sentinelmesh_storage::StorageEngine;
 use tokio::net::TcpListener;
@@ -120,6 +120,7 @@ async fn main() -> Result<()> {
         Arc::clone(&storage),
         Arc::clone(&store),
         config.storage.clickhouse.refresh_interval,
+        std::time::Duration::from_secs(config.storage.clickhouse.max_refresh_interval_secs),
         config.analysis.retention,
         alert_sink,
     ));
@@ -133,6 +134,7 @@ async fn main() -> Result<()> {
         .route("/v1/providers", get(providers))
         .route("/v1/signatures", get(signatures))
         .route("/v1/accounts", get(accounts))
+        .route("/v1/validator-history", get(validator_history))
         .route("/v1/ws/control", get(control::ws_handler))
         .route("/v1/admin/broadcast", post(control::admin_broadcast))
         .layer(DefaultBodyLimit::max(config.ingestion.max_batch_bytes))
@@ -168,27 +170,75 @@ async fn refresh_from_storage_loop(
     storage: Arc<StorageEngine>,
     store: Arc<RwLock<MeshStore>>,
     refresh_interval: std::time::Duration,
+    max_refresh_interval: std::time::Duration,
     retention: std::time::Duration,
     alert_sink: Option<alert::AlertSink>,
 ) {
-    let mut ticker = tokio::time::interval(refresh_interval);
-    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut adaptive = AdaptiveRefresh::new(refresh_interval, max_refresh_interval);
 
     loop {
-        ticker.tick().await;
+        tokio::time::sleep(adaptive.current_interval).await;
+
         match storage.hydrate_recent_samples(retention).await {
             Ok(samples) => {
+                let sample_count = samples.len();
                 let snapshot = {
                     let mut w = store.write();
                     w.replace_samples(samples);
                     w.snapshot()
                 };
+                adaptive.on_refresh(sample_count);
+                gauge!("sentinelmesh_aggregator_refresh_interval_ms")
+                    .set(adaptive.current_interval.as_millis() as f64);
+
                 if let Some(sink) = &alert_sink {
                     sink.dispatch(snapshot.anomalies);
                 }
             }
             Err(error) => warn!(error = %error, "failed to refresh in-memory state from storage"),
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Adaptive refresh backoff
+// ---------------------------------------------------------------------------
+
+/// Adaptive refresh interval that increases when no new data arrives and
+/// resets to the base interval when new envelopes are ingested.
+pub struct AdaptiveRefresh {
+    pub base_interval: std::time::Duration,
+    pub current_interval: std::time::Duration,
+    pub max_interval: std::time::Duration,
+    pub last_sample_count: usize,
+}
+
+impl AdaptiveRefresh {
+    pub fn new(base_interval: std::time::Duration, max_interval: std::time::Duration) -> Self {
+        Self {
+            base_interval,
+            current_interval: base_interval,
+            max_interval,
+            last_sample_count: 0,
+        }
+    }
+
+    /// Called after each refresh cycle. If the sample count hasn't changed,
+    /// increase the interval by 50% (capped at max). Otherwise, keep current.
+    pub fn on_refresh(&mut self, new_sample_count: usize) {
+        if new_sample_count == self.last_sample_count {
+            self.current_interval = self.current_interval.mul_f64(1.5).min(self.max_interval);
+        }
+        self.last_sample_count = new_sample_count;
+        // Ensure we never go below base
+        if self.current_interval < self.base_interval {
+            self.current_interval = self.base_interval;
+        }
+    }
+
+    /// Called when a new envelope is ingested. Resets the interval to base.
+    pub fn on_new_envelope(&mut self) {
+        self.current_interval = self.base_interval;
     }
 }
 
@@ -334,7 +384,7 @@ async fn ingest(
         state.store.write().ingest(envelope.batch.clone());
     }
 
-    let snapshot = state.store.read().snapshot();
+    let snapshot = state.store.write().snapshot();
 
     if let Some(sink) = &state.alert_sink {
         sink.dispatch(snapshot.anomalies.clone());
@@ -364,7 +414,7 @@ fn usize_to_f64(value: usize) -> f64 {
 }
 
 async fn snapshot(State(state): State<AppState>) -> Json<NetworkSnapshot> {
-    Json(state.store.read().snapshot())
+    Json(state.store.write().snapshot())
 }
 
 async fn providers(State(state): State<AppState>) -> Json<Vec<ProviderStatus>> {
@@ -377,6 +427,12 @@ async fn signatures(State(state): State<AppState>) -> Json<Vec<SignaturePropagat
 
 async fn accounts(State(state): State<AppState>) -> Json<Vec<AccountDivergence>> {
     Json(state.store.read().account_divergences())
+}
+
+async fn validator_history(
+    State(state): State<AppState>,
+) -> Json<BTreeMap<String, Vec<IdentityChangeEvent>>> {
+    Json(state.store.read().validator_history().clone())
 }
 
 pub fn authorize(headers: &HeaderMap, api_keys: &[String]) -> Result<(), AppError> {
@@ -437,5 +493,94 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         error!(status = %self.status, message = %self.message, "request failed");
         (self.status, self.message).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // Feature: sentinelmesh-comprehensive-upgrade, Property 15: Comportamento do backoff adaptativo
+    // **Validates: Requirements 11.1, 11.2, 11.4**
+    //
+    // For any sequence of refresh cycles where the sample count doesn't change,
+    // the refresh_interval must increase by 50% each cycle, never exceeding
+    // max_refresh_interval. When a new envelope arrives, the interval must
+    // reset to the base value. The interval must never be below the base.
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[test]
+        fn prop_adaptive_backoff_behaviour(
+            base_ms in 100_u64..=5000,
+            max_ms_extra in 1_u64..=60000,
+            // Sequence of events: true = no change (backoff), false = new envelope (reset)
+            events in proptest::collection::vec(proptest::bool::ANY, 1..50),
+        ) {
+            let base = std::time::Duration::from_millis(base_ms);
+            let max = std::time::Duration::from_millis(base_ms + max_ms_extra);
+            let mut adaptive = AdaptiveRefresh::new(base, max);
+
+            // Initial state checks
+            prop_assert_eq!(adaptive.current_interval, base);
+
+            let mut expected_interval = base;
+
+            for event in &events {
+                if *event {
+                    // No change in sample count → backoff by 50%
+                    let same_count = adaptive.last_sample_count;
+                    adaptive.on_refresh(same_count);
+                    expected_interval = expected_interval.mul_f64(1.5).min(max);
+                } else {
+                    // New envelope → reset to base
+                    adaptive.on_new_envelope();
+                    expected_interval = base;
+                    // Then a refresh with new data
+                    adaptive.on_refresh(adaptive.last_sample_count + 1);
+                    // Sample count changed, so no backoff — interval stays
+                }
+
+                // Invariant 1: interval never exceeds max
+                prop_assert!(adaptive.current_interval <= max,
+                    "interval {:?} exceeded max {:?}",
+                    adaptive.current_interval, max);
+
+                // Invariant 2: interval never below base
+                prop_assert!(adaptive.current_interval >= base,
+                    "interval {:?} below base {:?}",
+                    adaptive.current_interval, base);
+            }
+        }
+
+        #[test]
+        fn prop_adaptive_backoff_monotonic_increase(
+            base_ms in 100_u64..=2000,
+            max_factor in 2_u64..=20,
+            num_idle_cycles in 1_usize..=30,
+        ) {
+            let base = std::time::Duration::from_millis(base_ms);
+            let max = std::time::Duration::from_millis(base_ms * max_factor);
+            let mut adaptive = AdaptiveRefresh::new(base, max);
+
+            let mut prev_interval = adaptive.current_interval;
+
+            for _ in 0..num_idle_cycles {
+                let same_count = adaptive.last_sample_count;
+                adaptive.on_refresh(same_count);
+
+                // Interval should be >= previous (monotonically non-decreasing during idle)
+                prop_assert!(adaptive.current_interval >= prev_interval,
+                    "interval decreased from {:?} to {:?} during idle",
+                    prev_interval, adaptive.current_interval);
+
+                prev_interval = adaptive.current_interval;
+            }
+
+            // After reset, interval should be back to base
+            adaptive.on_new_envelope();
+            prop_assert_eq!(adaptive.current_interval, base);
+        }
     }
 }

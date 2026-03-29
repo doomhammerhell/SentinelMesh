@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 solana-program = "1.18.26"
 borsh = "1.0.0"
+solana-security-txt = "1.1.2"
 
 [lib]
 crate-type = ["cdylib", "lib"]
