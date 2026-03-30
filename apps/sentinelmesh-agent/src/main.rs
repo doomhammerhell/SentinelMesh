@@ -58,6 +58,7 @@ struct AgentStatus {
     last_batch_id: Option<String>,
     last_batch_at: Option<DateTime<Utc>>,
     last_publish_success_at: Option<DateTime<Utc>>,
+    last_canary_at: Option<DateTime<Utc>>,
     last_canary_signature: Option<String>,
     last_error: Option<String>,
 }
@@ -84,6 +85,7 @@ impl AgentStatus {
             last_batch_id: None,
             last_batch_at: None,
             last_publish_success_at: None,
+            last_canary_at: None,
             last_canary_signature: None,
             last_error: None,
         }
@@ -493,6 +495,22 @@ async fn run_canary_loop(
 
     loop {
         ticker.tick().await;
+
+        if let Some(cooldown) = config.canary.cooldown_seconds {
+            let last_run = status.read().last_canary_at;
+            if let Some(last_run) = last_run {
+                let elapsed = Utc::now() - last_run;
+                if elapsed.num_seconds() < cooldown.try_into().unwrap_or(i64::MAX) {
+                    info!(
+                        elapsed_s = elapsed.num_seconds(),
+                        cooldown_s = cooldown,
+                        "canary execution skipped due to cooldown"
+                    );
+                    continue;
+                }
+            }
+        }
+
         match emit_canary_signature(&config).await {
             Ok(Some(signature)) => {
                 let mut signatures = runtime_state.canary_signatures.write();
@@ -503,7 +521,9 @@ async fn run_canary_loop(
                 drop(signatures);
 
                 counter!("sentinelmesh_agent_canary_success_total").increment(1);
-                status.write().last_canary_signature = Some(signature.clone());
+                let mut s = status.write();
+                s.last_canary_signature = Some(signature.clone());
+                s.last_canary_at = Some(Utc::now());
                 info!(signature = %signature, "registered fresh canary signature");
             }
             Ok(None) => {}

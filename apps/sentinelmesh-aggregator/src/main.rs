@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 mod alert;
+pub mod committer;
 mod control;
 
 use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
@@ -61,6 +62,7 @@ pub struct AppState {
     metrics: PrometheusHandle,
     alert_sink: Option<alert::AlertSink>,
     control_tx: tokio::sync::broadcast::Sender<sentinelmesh_core::ControlMessage>,
+    agent_whitelist: Arc<Option<Vec<String>>>,
 }
 
 #[tokio::main]
@@ -120,7 +122,15 @@ async fn main() -> Result<()> {
         metrics: metrics_handle.clone(),
         alert_sink: alert_sink.clone(),
         control_tx,
+        agent_whitelist: Arc::new(config.agent_whitelist),
     };
+
+    if let Some(committer_config) = config.committer {
+        tokio::spawn(committer::start_committer_loop(
+            committer_config,
+            Arc::clone(&storage),
+        ));
+    }
 
     tokio::spawn(refresh_from_storage_loop(
         Arc::clone(&storage),
@@ -463,6 +473,14 @@ pub fn authorize(headers: &HeaderMap, api_keys: &[String]) -> Result<(), AppErro
 }
 
 fn verify_envelope(state: &AppState, envelope: &ProbeEnvelope) -> Result<(), AppError> {
+    if let Some(auth) = &envelope.auth {
+        if let Some(whitelist) = state.agent_whitelist.as_ref() {
+            if !whitelist.contains(&auth.signer_id) {
+                return Err(AppError::unauthorized("signer_id not in whitelist"));
+            }
+        }
+    }
+
     match (&envelope.auth, state.require_signed_batches) {
         (Some(auth), _) => state
             .verifier
