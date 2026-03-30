@@ -8,7 +8,7 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 
 | Contract | Program ID | Explorer |
 |----------|-----------|----------|
-| SentinelMesh Canary | `GPtsqUwZH4uh5BLg2sqPkLhPVcFuhQ4HfG84DSwWZmra` | [View on Explorer](https://explorer.solana.com/address/GPtsqUwZH4uh5BLg2sqPkLhPVcFuhQ4HfG84DSwWZmra?cluster=devnet) |
+| SentinelMesh Canary | `441bXQJ5SekBDdNmWZ7WZoGvEdQkMQuCr72MSeEVHMA2` | [View on Explorer](https://explorer.solana.com/address/441bXQJ5SekBDdNmWZ7WZoGvEdQkMQuCr72MSeEVHMA2?cluster=devnet) |
 | IDL Metadata Account | `DLqFVg3v7Fu6ym8ZgaXtzMCijm682cr3Bcu2Zp7NruMn` | [View on Explorer](https://explorer.solana.com/address/DLqFVg3v7Fu6ym8ZgaXtzMCijm682cr3Bcu2Zp7NruMn?cluster=devnet) |
 
 ## What It Does
@@ -125,8 +125,10 @@ Agent:
 ## Validation
 
 ```bash
-cargo fmt --all
-cargo clippy --workspace --all-targets --all-features
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo deny check
+cargo audit
 cargo test --workspace
 ```
 
