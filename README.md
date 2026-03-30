@@ -4,6 +4,8 @@ SentinelMesh is an open infrastructure observability layer for the Solana networ
 
 The repository is structured as an enterprise-oriented open-source Rust workspace with durable storage, signed ingestion, replayable telemetry, validator-centric probes, canary transaction support, deployment assets, CI/CD and operational documentation.
 
+**[Read the Elite Grant Strategy Document](docs/grant-strategy.md)** — Our technical vision for irrefutable integrity via Formal Methods and ZK.
+
 ## On-Chain Addresses (Solana Devnet)
 
 | Contract | Program ID | Explorer |
