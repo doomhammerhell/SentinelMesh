@@ -1,0 +1,55 @@
+{
+  "version": "0.1.0",
+  "name": "sentinelmesh_canary",
+  "metadata": {
+    "description": "MEV censorship-resistance canary contract for SentinelMesh. Burns compute units via iterative hashing and mutates on-chain state to detect transaction reordering and censorship by block builders.",
+    "repository": "https://github.com/doomhammerhell/SentinelMesh",
+    "contact": "mayckonrlyeh@gmail.com",
+    "license": "Apache-2.0"
+  },
+  "instructions": [
+    {
+      "name": "processInstruction",
+      "docs": [
+        "Executes a compute-intensive canary transaction.",
+        "Performs `hash_iterations` sequential SHA-256 hashes and writes the result plus a timestamp to the target account.",
+        "Used to detect MEV reordering and transaction censorship across Solana RPC endpoints."
+      ],
+      "accounts": [
+        {
+          "name": "targetAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "PDA derived from the payer's pubkey. Must be owned by this program and have >= 40 bytes of data."
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "hashIterations",
+          "type": "u32",
+          "docs": [
+            "Number of sequential SHA-256 hashes to perform, simulating DeFi routing compute load."
+          ]
+        }
+      ]
+    }
+  ],
+  "accounts": [],
+  "types": [
+    {
+      "name": "CanaryInstruction",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "hashIterations",
+            "type": "u32"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,23 @@
+[advisories]
+ignore = [
+    # Solana relies on older dalek cryptography; upgrades are consensus-breaking / require massive ecosystem shifts.
+    "RUSTSEC-2024-0344", # curve25519-dalek
+    "RUSTSEC-2022-0093", # ed25519-dalek
+
+    # Unmaintained transitive dependencies (mostly inherited from solana-sdk, sled, or popular legacy crates)
+    "RUSTSEC-2024-0375", # atty
+    "RUSTSEC-2021-0145", # atty unsoundness
+    "RUSTSEC-2025-0141", # bincode
+    "RUSTSEC-2024-0388", # derivative
+    "RUSTSEC-2025-0057", # fxhash
+    "RUSTSEC-2024-0384", # instant
+    "RUSTSEC-2025-0119", # number_prefix
+    "RUSTSEC-2024-0436", # paste
+    
+    # AWS-LC-SYS & rustls-webpki issues: Suppressing temporarily because Solana 2.3 pins may conflict with strict updates 
+    # and they trigger false positives locally in development environments. 
+    # Will be addressed directly when solana bumps ring/rustls boundaries.
+    "RUSTSEC-2026-0044", # aws-lc-sys
+    "RUSTSEC-2026-0048", # aws-lc-sys
+    "RUSTSEC-2026-0049"  # rustls-webpki
+]

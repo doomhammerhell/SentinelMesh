@@ -9,30 +9,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- D3.js CDN for network topology -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
     <style>
       :root {
         color-scheme: dark;
-        /* Cyberpunk / Glassmorphism Palette */
         --bg-base: #06090e;
         --panel-bg: rgba(13, 19, 31, 0.65);
         --panel-border: rgba(94, 234, 212, 0.12);
-        
         --text-pure: #ffffff;
         --text-main: #e2edf7;
         --text-muted: #8b9eb3;
-        
         --brand-primary: #00f2fe;
         --brand-secondary: #4facfe;
         --accent-neon: #10e6a9;
-        
-        /* Status Colors */
         --status-healthy: #10e6a9;
         --status-healthy-glow: rgba(16, 230, 169, 0.4);
         --status-warning: #fbbf24;
         --status-critical: #f43f5e;
         --status-critical-glow: rgba(244, 63, 94, 0.4);
-
         --shadow-glow: 0 0 20px rgba(0, 242, 254, 0.1);
       }
 
@@ -43,7 +39,6 @@
         font-family: 'Outfit', sans-serif;
         color: var(--text-main);
         background-color: var(--bg-base);
-        /* Animated Background Pattern */
         background-image: 
           radial-gradient(circle at 15% 50%, rgba(79, 172, 254, 0.08), transparent 25%),
           radial-gradient(circle at 85% 30%, rgba(16, 230, 169, 0.06), transparent 25%),
@@ -52,7 +47,6 @@
         overflow-x: hidden;
       }
 
-      /* Animated Grid overlay */
       body::before {
         content: "";
         position: fixed;
@@ -70,7 +64,7 @@
         margin: 32px auto 64px;
       }
 
-      /* HEADER HERO SECTION */
+      /* HERO */
       .hero {
         padding: 36px 42px;
         border: 1px solid var(--panel-border);
@@ -84,7 +78,6 @@
         margin-bottom: 32px;
       }
 
-      /* Animated glow orb behind hero */
       .hero::before {
         content: "";
         position: absolute;
@@ -128,7 +121,6 @@
         line-height: 1.6;
       }
 
-      /* STATS GRID */
       .grid-4 {
         display: grid;
         gap: 20px;
@@ -136,7 +128,7 @@
         margin-top: 32px;
       }
 
-      /* COMPONENT: GLASS CARD */
+      /* CARD */
       .card {
         background: var(--panel-bg);
         border: 1px solid var(--panel-border);
@@ -181,7 +173,6 @@
         font-family: 'Outfit', sans-serif;
       }
 
-      /* LAYOUT GRIDS */
       .layout-grid {
         display: grid;
         gap: 24px;
@@ -189,8 +180,15 @@
         margin-bottom: 24px;
       }
 
+      .layout-grid-equal {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: 1fr 1fr;
+        margin-bottom: 24px;
+      }
+
       @media (max-width: 1024px) {
-        .layout-grid { grid-template-columns: 1fr; }
+        .layout-grid, .layout-grid-equal { grid-template-columns: 1fr; }
       }
 
       .section-header {
@@ -222,13 +220,8 @@
         border: 1px solid rgba(94, 234, 212, 0.2);
       }
 
-      /* LISTS & ROWS */
-      .kv-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
+      /* KV Lists */
+      .kv-list { display: flex; flex-direction: column; gap: 12px; }
       .kv-row {
         display: flex;
         justify-content: space-between;
@@ -238,29 +231,18 @@
         border-radius: 12px;
         border: 1px solid rgba(255,255,255,0.03);
       }
+      .kv-label { color: var(--text-muted); font-size: 0.95rem; }
+      .kv-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
 
-      .kv-label {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-      }
-
-      .kv-val {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 700;
-        font-size: 1.1rem;
-        color: var(--text-main);
-      }
-
-      /* ANOMALIES */
+      /* Anomaly Feed */
       .anomaly-feed {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        max-height: 250px;
+        max-height: 350px;
         overflow-y: auto;
         padding-right: 8px;
       }
-
       .anomaly-feed::-webkit-scrollbar { width: 6px; }
       .anomaly-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
@@ -271,7 +253,6 @@
         background: rgba(0,0,0,0.2);
         font-size: 0.9rem;
       }
-
       .anomaly-card.warning { 
         border-left-color: var(--status-warning);
         background: linear-gradient(90deg, rgba(251, 191, 36, 0.05), transparent);
@@ -284,27 +265,52 @@
         border-left-color: var(--brand-secondary);
         background: linear-gradient(90deg, rgba(79, 172, 254, 0.05), transparent);
       }
-
       .anomaly-code {
         font-weight: 700;
         color: var(--text-pure);
         margin-bottom: 4px;
         font-family: 'JetBrains Mono', monospace;
       }
+      .anomaly-severity {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
 
-      /* TABLES */
+      /* Filter bar */
+      .filter-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .filter-btn {
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.03);
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'Outfit', sans-serif;
+      }
+      .filter-btn:hover { border-color: rgba(94, 234, 212, 0.3); color: var(--text-main); }
+      .filter-btn.active {
+        background: rgba(94, 234, 212, 0.1);
+        border-color: rgba(94, 234, 212, 0.4);
+        color: var(--accent-neon);
+      }
+
+      /* Tables */
       .table-container {
         overflow-x: auto;
         border-radius: 12px;
         border: 1px solid rgba(255,255,255,0.05);
       }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-      }
-
+      table { width: 100%; border-collapse: collapse; text-align: left; }
       th {
         background: rgba(0,0,0,0.4);
         padding: 14px 16px;
@@ -316,7 +322,6 @@
         border-bottom: 1px solid rgba(255,255,255,0.08);
         white-space: nowrap;
       }
-
       td {
         padding: 14px 16px;
         border-bottom: 1px solid rgba(255,255,255,0.03);
@@ -324,55 +329,23 @@
         color: var(--text-main);
         white-space: nowrap;
       }
-
-      tbody tr {
-        transition: background 0.2s;
-      }
-
-      tbody tr:hover {
-        background: rgba(255,255,255,0.02);
-      }
-
+      tbody tr { transition: background 0.2s; }
+      tbody tr:hover { background: rgba(255,255,255,0.02); }
       td.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
 
-      /* GLOWING STATUS DOTS */
-      .status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        text-transform: capitalize;
-      }
-
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        position: relative;
-      }
-
-      .dot.healthy {
-        background: var(--status-healthy);
-        box-shadow: 0 0 8px var(--status-healthy-glow);
-      }
-
+      /* Status dots */
+      .status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85rem; text-transform: capitalize; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; position: relative; }
+      .dot.healthy { background: var(--status-healthy); box-shadow: 0 0 8px var(--status-healthy-glow); }
       .dot.healthy::after {
         content: ""; position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px;
         border-radius: 50%; border: 1px solid var(--status-healthy);
         animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
       }
+      .dot.degraded { background: var(--status-warning); box-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
+      @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
 
-      .dot.degraded {
-        background: var(--status-warning);
-        box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
-      }
-
-      @keyframes ping {
-        75%, 100% { transform: scale(2); opacity: 0; }
-      }
-
-      /* CHARTS CONTAINER */
+      /* Charts */
       .chart-container {
         position: relative;
         height: 250px;
@@ -381,7 +354,52 @@
         align-items: center;
         justify-content: center;
       }
+      .chart-container-wide {
+        position: relative;
+        height: 300px;
+        width: 100%;
+      }
 
+      /* D3 Topology */
+      #topology-svg {
+        width: 100%;
+        height: 400px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.2);
+      }
+      #topology-svg .link { stroke: rgba(94, 234, 212, 0.2); stroke-width: 1.5; }
+      #topology-svg .node-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        fill: var(--text-muted);
+        pointer-events: none;
+      }
+
+      /* Geo table */
+      .geo-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      }
+      .geo-card {
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+      }
+      .geo-region {
+        font-weight: 700;
+        color: var(--text-pure);
+        font-size: 0.95rem;
+        margin-bottom: 6px;
+      }
+      .geo-detail {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      .mb-24 { margin-bottom: 24px; }
     </style>
   </head>
   <body>
@@ -415,20 +433,69 @@
         </div>
       </section>
 
-      <!-- MID SECTION -->
-      <div class="layout-grid">
-        <!-- LEFT: CHARTS -->
+      <!-- NETWORK TOPOLOGY (Task 16.1) -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <h2 class="section-title">Network Topology</h2>
+          <span class="badge">Live</span>
+        </div>
+        <svg id="topology-svg"></svg>
+      </div>
+
+      <!-- HHI CHARTS + GEO CONCENTRATION (Task 16.2) -->
+      <div class="layout-grid-equal mb-24">
         <div class="card">
           <div class="section-header">
-            <h2 class="section-title">Provider Concentration (HHI)</h2>
+            <h2 class="section-title">Provider HHI</h2>
             <span class="badge">Live</span>
           </div>
           <div class="chart-container">
-            <canvas id="hhiChart"></canvas>
+            <canvas id="providerHhiChart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-header">
+            <h2 class="section-title">ASN HHI</h2>
+            <span class="badge">Live</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="asnHhiChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- GEO CONCENTRATION MAP (Task 16.2) -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <h2 class="section-title">Geographic Concentration</h2>
+          <span class="badge">Live</span>
+        </div>
+        <div class="geo-grid" id="geo-grid">
+          <div style="color: var(--text-muted); padding: 10px 0;">Waiting for telemetry data...</div>
+        </div>
+      </div>
+
+      <!-- MID SECTION: DIVERGENCE + ANOMALIES -->
+      <div class="layout-grid mb-24">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- ANOMALY TIMELINE (Task 16.3) -->
+          <div class="card" style="flex: 1;">
+            <div class="section-header">
+              <h2 class="section-title">Anomaly Timeline</h2>
+              <span class="badge" id="anomaly-badge">0 Detects</span>
+            </div>
+            <div class="filter-bar" id="anomaly-filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="critical">Critical</button>
+              <button class="filter-btn" data-filter="warning">Warning</button>
+              <button class="filter-btn" data-filter="info">Info</button>
+            </div>
+            <div class="anomaly-feed" id="anomaly-list">
+              <div style="color: var(--text-muted); padding: 10px 0;">No anomalies detected. System nominal.</div>
+            </div>
           </div>
         </div>
 
-        <!-- RIGHT: DIVERGENCE & ANOMALIES -->
         <div style="display: flex; flex-direction: column; gap: 24px;">
           <div class="card" style="flex: 1;">
             <div class="section-header">
@@ -447,22 +514,31 @@
                 <span class="kv-label">Account Divergences</span>
                 <span class="kv-val" id="val-acc-diverge">--</span>
               </div>
-            </div>
-          </div>
-
-          <div class="card" style="flex: 1;">
-            <div class="section-header">
-              <h2 class="section-title">Active Anomalies</h2>
-              <span class="badge" id="anomaly-badge">0 Detects</span>
-            </div>
-            <div class="anomaly-feed" id="anomaly-list">
-              <div style="color: var(--text-muted); padding: 10px 0;">No anomalies detected in the current window. System nominal.</div>
+              <div class="kv-row">
+                <span class="kv-label">MEV Slots Analyzed</span>
+                <span class="kv-val" id="val-mev-slots">--</span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-label">Leader Schedule Anomalies</span>
+                <span class="kv-val" id="val-leader-anomalies">--</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- BOTTOM SECTION: FLEET TABLE -->
+      <!-- PROPAGATION CHART (Task 16.3) -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <h2 class="section-title">Signature Propagation Percentiles</h2>
+          <span class="badge">Time Series</span>
+        </div>
+        <div class="chart-container-wide">
+          <canvas id="propagationChart"></canvas>
+        </div>
+      </div>
+
+      <!-- FLEET TABLE -->
       <div class="card">
         <div class="section-header">
           <h2 class="section-title">Global Endpoints Telemetry</h2>
@@ -491,58 +567,428 @@
     </div>
 
     <script>
-      // Global Chart Instance
-      let hhiChartInstance = null;
+      // ========== GLOBAL STATE ==========
+      let providerHhiChart = null;
+      let asnHhiChart = null;
+      let propagationChart = null;
+      let topologySim = null;
+      let allAnomalies = [];
+      let activeFilter = 'all';
+      let propagationHistory = []; // rolling window of propagation data points
 
-      // Initialization of Chart.js
-      function initChart() {
-        const ctx = document.getElementById('hhiChart').getContext('2d');
-        Chart.defaults.color = '#8b9eb3';
-        Chart.defaults.font.family = "'Outfit', sans-serif";
-        
-        hhiChartInstance = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: ['Waiting for Data'],
-            datasets: [{
-              data: [100],
-              backgroundColor: ['rgba(255,255,255,0.05)'],
-              borderWidth: 0,
-              cutout: '75%',
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: { padding: 20, usePointStyle: true, pointStyle: 'circle' }
-              },
-              tooltip: {
-                backgroundColor: 'rgba(13, 19, 31, 0.9)',
-                titleFont: { size: 14, family: 'Outfit' },
-                bodyFont: { size: 13, family: 'Outfit' },
-                padding: 12,
-                borderColor: 'rgba(94, 234, 212, 0.2)',
-                borderWidth: 1
-              }
-            },
-            animation: { animateScale: true, animateRotate: true }
-          }
-        });
-      }
-
-      // Palette generator for charts
       const chartColors = [
         '#00f2fe', '#4facfe', '#10e6a9', '#fbbf24', '#f43f5e', 
         '#a855f7', '#ec4899', '#6366f1', '#14b8a6', '#f97316'
       ];
 
-      // Formatters
       const fmtNum = (v) => v != null ? v.toLocaleString() : '--';
       const fmtPct = (v) => v != null ? (v * 100).toFixed(2) : '--';
 
+      // ========== CHART.JS DEFAULTS ==========
+      Chart.defaults.color = '#8b9eb3';
+      Chart.defaults.font.family = "'Outfit', sans-serif";
+
+      const doughnutTooltipConfig = {
+        backgroundColor: 'rgba(13, 19, 31, 0.9)',
+        titleFont: { size: 14, family: 'Outfit' },
+        bodyFont: { size: 13, family: 'Outfit' },
+        padding: 12,
+        borderColor: 'rgba(94, 234, 212, 0.2)',
+        borderWidth: 1
+      };
+
+      // ========== INIT CHARTS ==========
+      function initCharts() {
+        // Provider HHI Doughnut
+        providerHhiChart = new Chart(document.getElementById('providerHhiChart').getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: ['Waiting for Data'],
+            datasets: [{ data: [100], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0, cutout: '70%' }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } },
+              tooltip: doughnutTooltipConfig
+            }
+          }
+        });
+
+        // ASN HHI Doughnut
+        asnHhiChart = new Chart(document.getElementById('asnHhiChart').getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: ['Waiting for Data'],
+            datasets: [{ data: [100], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0, cutout: '70%' }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } },
+              tooltip: doughnutTooltipConfig
+            }
+          }
+        });
+
+        // Propagation Time Series
+        propagationChart = new Chart(document.getElementById('propagationChart').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: 'p50',
+                data: [],
+                borderColor: '#10e6a9',
+                backgroundColor: 'rgba(16, 230, 169, 0.1)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2
+              },
+              {
+                label: 'p95',
+                data: [],
+                borderColor: '#4facfe',
+                backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2
+              },
+              {
+                label: 'p99',
+                data: [],
+                borderColor: '#f43f5e',
+                backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255,255,255,0.03)' },
+                ticks: { maxTicksLimit: 12 }
+              },
+              y: {
+                grid: { color: 'rgba(255,255,255,0.03)' },
+                title: { display: true, text: 'Latency (ms)', color: '#8b9eb3' },
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: { labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 } },
+              tooltip: doughnutTooltipConfig
+            }
+          }
+        });
+      }
+
+      // ========== D3 NETWORK TOPOLOGY (Task 16.1) ==========
+      function initTopology() {
+        const svg = d3.select('#topology-svg');
+        const width = svg.node().getBoundingClientRect().width;
+        const height = 400;
+        svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+        // Defs for arrow markers
+        svg.append('defs').append('marker')
+          .attr('id', 'arrowhead')
+          .attr('viewBox', '0 -5 10 10')
+          .attr('refX', 20)
+          .attr('refY', 0)
+          .attr('markerWidth', 6)
+          .attr('markerHeight', 6)
+          .attr('orient', 'auto')
+          .append('path')
+          .attr('d', 'M0,-5L10,0L0,5')
+          .attr('fill', 'rgba(94, 234, 212, 0.4)');
+
+        svg.append('g').attr('class', 'links');
+        svg.append('g').attr('class', 'nodes');
+      }
+
+      function updateTopology(provs) {
+        const svg = d3.select('#topology-svg');
+        const width = svg.node().getBoundingClientRect().width;
+        const height = 400;
+
+        // Build nodes and links from provider data
+        const sentinelMap = {};
+        const endpointMap = {};
+        const links = [];
+
+        provs.forEach(p => {
+          const sentinelKey = p.sentinel_id || p.sentinel_location;
+          if (!sentinelMap[sentinelKey]) {
+            sentinelMap[sentinelKey] = {
+              id: sentinelKey,
+              type: 'sentinel',
+              label: p.sentinel_location || sentinelKey,
+              healthy: true
+            };
+          }
+
+          const epKey = p.endpoint_id || `${p.provider}:${p.label}`;
+          if (!endpointMap[epKey]) {
+            endpointMap[epKey] = {
+              id: epKey,
+              type: 'endpoint',
+              label: p.label || p.provider,
+              provider: p.provider,
+              healthy: p.healthy
+            };
+          } else {
+            endpointMap[epKey].healthy = endpointMap[epKey].healthy && p.healthy;
+          }
+
+          links.push({ source: sentinelKey, target: epKey });
+        });
+
+        const nodes = [...Object.values(sentinelMap), ...Object.values(endpointMap)];
+        const uniqueLinks = [];
+        const linkSet = new Set();
+        links.forEach(l => {
+          const key = `${l.source}->${l.target}`;
+          if (!linkSet.has(key)) {
+            linkSet.add(key);
+            uniqueLinks.push(l);
+          }
+        });
+
+        if (nodes.length === 0) {
+          svg.select('.links').selectAll('*').remove();
+          svg.select('.nodes').selectAll('*').remove();
+          return;
+        }
+
+        // Update links
+        const linkSel = svg.select('.links').selectAll('line').data(uniqueLinks, d => `${d.source}-${d.target}`);
+        linkSel.exit().remove();
+        const linkEnter = linkSel.enter().append('line')
+          .attr('class', 'link')
+          .attr('marker-end', 'url(#arrowhead)');
+        const allLinks = linkEnter.merge(linkSel);
+
+        // Update nodes
+        const nodeSel = svg.select('.nodes').selectAll('g').data(nodes, d => d.id);
+        nodeSel.exit().remove();
+        const nodeEnter = nodeSel.enter().append('g').attr('class', 'node-group');
+        nodeEnter.append('circle');
+        nodeEnter.append('text').attr('class', 'node-label');
+        const allNodes = nodeEnter.merge(nodeSel);
+
+        allNodes.select('circle')
+          .attr('r', d => d.type === 'sentinel' ? 10 : 7)
+          .attr('fill', d => {
+            if (d.type === 'sentinel') return '#4facfe';
+            return d.healthy ? '#10e6a9' : '#f43f5e';
+          })
+          .attr('stroke', d => {
+            if (d.type === 'sentinel') return 'rgba(79, 172, 254, 0.3)';
+            return d.healthy ? 'rgba(16, 230, 169, 0.3)' : 'rgba(244, 63, 94, 0.3)';
+          })
+          .attr('stroke-width', 3);
+
+        allNodes.select('text')
+          .text(d => d.label.length > 18 ? d.label.slice(0, 16) + '..' : d.label)
+          .attr('dx', 14)
+          .attr('dy', 4);
+
+        // Force simulation
+        if (topologySim) topologySim.stop();
+        topologySim = d3.forceSimulation(nodes)
+          .force('link', d3.forceLink(uniqueLinks).id(d => d.id).distance(80))
+          .force('charge', d3.forceManyBody().strength(-200))
+          .force('center', d3.forceCenter(width / 2, height / 2))
+          .force('collision', d3.forceCollide(25))
+          .on('tick', () => {
+            allLinks
+              .attr('x1', d => d.source.x)
+              .attr('y1', d => d.source.y)
+              .attr('x2', d => d.target.x)
+              .attr('y2', d => d.target.y);
+            allNodes.attr('transform', d => `translate(${d.x},${d.y})`);
+          });
+      }
+
+      // ========== GEOGRAPHIC CONCENTRATION (Task 16.2) ==========
+      function updateGeoConcentration(provs) {
+        const geoGrid = document.getElementById('geo-grid');
+        if (provs.length === 0) {
+          geoGrid.innerHTML = '<div style="color: var(--text-muted); padding: 10px 0;">No telemetry data available.</div>';
+          return;
+        }
+
+        // Group by region
+        const regionMap = {};
+        provs.forEach(p => {
+          const region = p.region || 'Unknown';
+          if (!regionMap[region]) {
+            regionMap[region] = { sentinels: new Set(), providers: new Set(), endpoints: 0, healthy: 0, degraded: 0 };
+          }
+          regionMap[region].sentinels.add(p.sentinel_location || p.sentinel_id);
+          regionMap[region].providers.add(p.provider);
+          regionMap[region].endpoints++;
+          if (p.healthy) regionMap[region].healthy++;
+          else regionMap[region].degraded++;
+        });
+
+        const regions = Object.entries(regionMap).sort((a, b) => b[1].endpoints - a[1].endpoints);
+        geoGrid.innerHTML = regions.map(([region, data]) => `
+          <div class="geo-card">
+            <div class="geo-region">${region}</div>
+            <div class="geo-detail">
+              <div>${data.endpoints} endpoint${data.endpoints !== 1 ? 's' : ''}</div>
+              <div>${data.sentinels.size} sentinel${data.sentinels.size !== 1 ? 's' : ''}</div>
+              <div>${data.providers.size} provider${data.providers.size !== 1 ? 's' : ''}</div>
+              <div style="color: ${data.degraded > 0 ? 'var(--status-warning)' : 'var(--status-healthy)'}">
+                ${data.healthy} healthy, ${data.degraded} degraded
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // ========== HHI DOUGHNUT CHARTS (Task 16.2) ==========
+      function updateProviderHhi(snap, provs) {
+        if (!providerHhiChart) return;
+
+        // Use provider_shares from snapshot if available, else aggregate from provs
+        let labels = [];
+        let data = [];
+
+        if (snap.infrastructure_concentration && snap.infrastructure_concentration.provider_shares && snap.infrastructure_concentration.provider_shares.length > 0) {
+          const shares = snap.infrastructure_concentration.provider_shares.sort((a, b) => b.sample_share - a.sample_share);
+          labels = shares.map(s => s.provider);
+          data = shares.map(s => s.samples);
+        } else if (provs.length > 0) {
+          const countMap = {};
+          provs.forEach(p => { countMap[p.provider] = (countMap[p.provider] || 0) + 1; });
+          labels = Object.keys(countMap).sort((a, b) => countMap[b] - countMap[a]);
+          data = labels.map(l => countMap[l]);
+        }
+
+        if (labels.length > 0) {
+          providerHhiChart.data.labels = labels;
+          providerHhiChart.data.datasets[0].data = data;
+          providerHhiChart.data.datasets[0].backgroundColor = chartColors.slice(0, labels.length);
+        } else {
+          providerHhiChart.data.labels = ['No Data'];
+          providerHhiChart.data.datasets[0].data = [1];
+          providerHhiChart.data.datasets[0].backgroundColor = ['rgba(255,255,255,0.05)'];
+        }
+        providerHhiChart.update();
+      }
+
+      function updateAsnHhi(provs) {
+        if (!asnHhiChart) return;
+
+        // Group by ASN (using provider as proxy since ASN isn't directly in ProviderStatus)
+        // In a real deployment, ASN data comes from the snapshot's asn_hhi
+        // We approximate by grouping endpoints by sentinel_location as a proxy for ASN diversity
+        const asnMap = {};
+        provs.forEach(p => {
+          const asn = p.sentinel_location || 'Unknown';
+          asnMap[asn] = (asnMap[asn] || 0) + 1;
+        });
+
+        const labels = Object.keys(asnMap).sort((a, b) => asnMap[b] - asnMap[a]);
+        const data = labels.map(l => asnMap[l]);
+
+        if (labels.length > 0) {
+          asnHhiChart.data.labels = labels;
+          asnHhiChart.data.datasets[0].data = data;
+          asnHhiChart.data.datasets[0].backgroundColor = chartColors.slice(0, labels.length);
+        } else {
+          asnHhiChart.data.labels = ['No Data'];
+          asnHhiChart.data.datasets[0].data = [1];
+          asnHhiChart.data.datasets[0].backgroundColor = ['rgba(255,255,255,0.05)'];
+        }
+        asnHhiChart.update();
+      }
+
+      // ========== ANOMALY TIMELINE WITH FILTERS (Task 16.3) ==========
+      function updateAnomalyTimeline(anomalies) {
+        allAnomalies = anomalies || [];
+        document.getElementById('anomaly-badge').textContent = `${allAnomalies.length} Detects`;
+        renderFilteredAnomalies();
+      }
+
+      function renderFilteredAnomalies() {
+        const list = document.getElementById('anomaly-list');
+        const filtered = activeFilter === 'all'
+          ? allAnomalies
+          : allAnomalies.filter(a => a.severity === activeFilter);
+
+        if (filtered.length > 0) {
+          list.innerHTML = filtered.map(a => {
+            const sev = (a.severity || 'info').toLowerCase();
+            return `
+              <div class="anomaly-card ${sev}">
+                <div class="anomaly-severity" style="color: ${sev === 'critical' ? 'var(--status-critical)' : sev === 'warning' ? 'var(--status-warning)' : 'var(--brand-secondary)'}">
+                  ${sev.toUpperCase()}
+                </div>
+                <div class="anomaly-code">${a.code}</div>
+                <div class="anomaly-desc">${a.summary}</div>
+              </div>
+            `;
+          }).join('');
+        } else {
+          list.innerHTML = '<div style="color: var(--text-muted); padding: 10px 0;">No anomalies match the current filter.</div>';
+        }
+      }
+
+      // Filter button handlers
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('anomaly-filters').addEventListener('click', (e) => {
+          if (e.target.classList.contains('filter-btn')) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            activeFilter = e.target.dataset.filter;
+            renderFilteredAnomalies();
+          }
+        });
+      });
+
+      // ========== PROPAGATION TIME SERIES (Task 16.3) ==========
+      const MAX_PROPAGATION_POINTS = 60; // 10 minutes at 10s intervals
+
+      function updatePropagationChart(snap) {
+        if (!propagationChart) return;
+
+        const now = new Date();
+        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const p50 = snap.propagation.p50_window_ms;
+        const p95 = snap.propagation.p95_window_ms;
+        const p99 = snap.propagation.p99_window_ms;
+
+        propagationHistory.push({ time: timeLabel, p50: p50 || null, p95: p95 || null, p99: p99 || null });
+
+        // Keep rolling window
+        if (propagationHistory.length > MAX_PROPAGATION_POINTS) {
+          propagationHistory.shift();
+        }
+
+        propagationChart.data.labels = propagationHistory.map(d => d.time);
+        propagationChart.data.datasets[0].data = propagationHistory.map(d => d.p50);
+        propagationChart.data.datasets[1].data = propagationHistory.map(d => d.p95);
+        propagationChart.data.datasets[2].data = propagationHistory.map(d => d.p99);
+        propagationChart.update();
+      }
+
+      // ========== MAIN UPDATE LOOP ==========
       async function updateDashboard() {
         try {
           const [snapRes, provRes] = await Promise.all([
@@ -555,33 +1001,36 @@
           const snap = await snapRes.json();
           const provs = await provRes.json();
 
-          // 1. Update Hero Stats
+          // 1. Hero Stats
           document.getElementById('val-consistency').innerHTML = `${fmtPct(snap.rpc_consistency_index)}<span class="metric-unit">%</span>`;
           document.getElementById('val-endpoints').innerHTML = `${fmtNum(snap.active_endpoints)}<span class="metric-unit"> nodes</span>`;
           document.getElementById('val-hhi').innerHTML = `${snap.infrastructure_concentration.provider_hhi.toFixed(3)}<span class="metric-unit"> idx</span>`;
           document.getElementById('val-prop').innerHTML = `${fmtNum(snap.propagation.p95_window_ms)}<span class="metric-unit"> ms</span>`;
 
-          // 2. Update Divergence KV List
+          // 2. Divergence KV
           document.getElementById('val-slot-spread').textContent = fmtNum(snap.validator_state_divergence.slot_spread);
           document.getElementById('val-blockhash-disagree').textContent = fmtPct(snap.validator_state_divergence.blockhash_disagreement_ratio) + '%';
           document.getElementById('val-acc-diverge').textContent = fmtNum(snap.validator_state_divergence.account_divergence_count);
+          document.getElementById('val-mev-slots').textContent = snap.mev_audit ? fmtNum(snap.mev_audit.slots_analyzed) : '--';
+          document.getElementById('val-leader-anomalies').textContent = fmtNum(snap.leader_schedule_anomalies);
 
-          // 3. Update Anomalies
-          const anomalyList = document.getElementById('anomaly-list');
-          document.getElementById('anomaly-badge').textContent = `${snap.anomalies.length} Detects`;
-          
-          if (snap.anomalies.length > 0) {
-            anomalyList.innerHTML = snap.anomalies.map(a => `
-              <div class="anomaly-card ${a.severity}">
-                <div class="anomaly-code">${a.code}</div>
-                <div class="anomaly-desc">${a.summary}</div>
-              </div>
-            `).join('');
-          } else {
-            anomalyList.innerHTML = `<div style="color: var(--text-muted); padding: 10px 0;">No anomalies detected. System nominal.</div>`;
-          }
+          // 3. Network Topology (Task 16.1)
+          updateTopology(provs);
 
-          // 4. Update Table
+          // 4. HHI Charts (Task 16.2)
+          updateProviderHhi(snap, provs);
+          updateAsnHhi(provs);
+
+          // 5. Geographic Concentration (Task 16.2)
+          updateGeoConcentration(provs);
+
+          // 6. Anomaly Timeline (Task 16.3)
+          updateAnomalyTimeline(snap.anomalies);
+
+          // 7. Propagation Chart (Task 16.3)
+          updatePropagationChart(snap);
+
+          // 8. Fleet Table
           const tbody = document.getElementById('fleet-table-body');
           if (provs.length > 0) {
             tbody.innerHTML = provs.map(p => `
@@ -604,28 +1053,7 @@
               </tr>
             `).join('');
           } else {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--text-muted);">No provider telemetry received in the freshness window.</td></tr>`;
-          }
-
-          // 5. Update Chart Data
-          if (hhiChartInstance) {
-            // Aggregate endpoints by provider to show share
-            const countMap = {};
-            provs.forEach(p => { countMap[p.provider] = (countMap[p.provider] || 0) + 1; });
-            
-            const labels = Object.keys(countMap).sort((a,b) => countMap[b] - countMap[a]);
-            const data = labels.map(l => countMap[l]);
-            
-            if (labels.length > 0) {
-              hhiChartInstance.data.labels = labels;
-              hhiChartInstance.data.datasets[0].data = data;
-              hhiChartInstance.data.datasets[0].backgroundColor = chartColors.slice(0, labels.length);
-            } else {
-              hhiChartInstance.data.labels = ['No Data'];
-              hhiChartInstance.data.datasets[0].data = [1];
-              hhiChartInstance.data.datasets[0].backgroundColor = ['rgba(255,255,255,0.05)'];
-            }
-            hhiChartInstance.update();
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--text-muted);">No provider telemetry received in the freshness window.</td></tr>';
           }
 
         } catch (err) {
@@ -633,12 +1061,13 @@
         }
       }
 
-      // Bootstrap
+      // ========== BOOTSTRAP ==========
       document.addEventListener('DOMContentLoaded', () => {
-        initChart();
+        initCharts();
+        initTopology();
         updateDashboard();
-        // Background polling
-        setInterval(updateDashboard, 5000);
+        // Auto-refresh every 10 seconds (Requirement 17.4)
+        setInterval(updateDashboard, 10000);
       });
     </script>
   </body>

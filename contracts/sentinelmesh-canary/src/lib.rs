@@ -9,8 +9,19 @@ use solana_program::{
     pubkey::Pubkey,
     sysvar::Sysvar,
 };
+use solana_security_txt::security_txt;
 
 entrypoint!(process_instruction);
+
+security_txt! {
+    name: "SentinelMesh Canary",
+    project_url: "https://github.com/doomhammerhell/SentinelMesh",
+    contacts: "email:mayckonrlyeh@gmail.com,link:https://github.com/doomhammerhell/SentinelMesh/blob/main/SECURITY.md",
+    policy: "https://github.com/doomhammerhell/SentinelMesh/blob/main/SECURITY.md",
+    preferred_languages: "en,pt",
+    source_code: "https://github.com/doomhammerhell/SentinelMesh/tree/main/contracts/sentinelmesh-canary",
+    auditors: "None"
+}
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct CanaryInstruction {

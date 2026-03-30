@@ -1,8 +1,9 @@
 mod auth;
+pub mod circuit_breaker;
 mod control;
 mod wal;
 
-use std::{collections::VecDeque, path::PathBuf, sync::Arc};
+use std::{collections::VecDeque, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -291,6 +292,11 @@ async fn main() -> Result<()> {
         "agent started"
     );
 
+    let cb_registry = Arc::new(circuit_breaker::CircuitBreakerRegistry::new(
+        config.runtime.circuit_breaker.failure_threshold,
+        Duration::from_secs(config.runtime.circuit_breaker.recovery_interval_secs),
+    ));
+
     run_collection_loop(
         config,
         live_endpoints,
@@ -298,6 +304,7 @@ async fn main() -> Result<()> {
         publisher,
         status,
         runtime_state,
+        cb_registry,
     )
     .await
 }
@@ -337,6 +344,7 @@ async fn run_collection_loop(
     publisher: BatchPublisher,
     status: Arc<RwLock<AgentStatus>>,
     runtime_state: RuntimeState,
+    cb_registry: Arc<circuit_breaker::CircuitBreakerRegistry>,
 ) -> Result<()> {
     let mut ticker = tokio::time::interval(config.runtime.sample_interval);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -348,7 +356,7 @@ async fn run_collection_loop(
                 let tracked_signatures = merged_signatures(&config, &runtime_state);
                 let current_endpoints = live_endpoints.read().clone();
                 let observations =
-                    collect_observations(&config, current_endpoints, &probe, &tracked_signatures).await;
+                    collect_observations(&config, current_endpoints, &probe, &tracked_signatures, &cb_registry).await;
 
                 let mut sorted_observations = observations;
                 sorted_observations.sort_by(|left, right| left.endpoint.id.cmp(&right.endpoint.id));
@@ -424,32 +432,55 @@ async fn collect_observations(
     endpoints: Vec<sentinelmesh_core::RpcEndpointConfig>,
     probe: &SolanaProbe,
     tracked_signatures: &[String],
+    cb_registry: &circuit_breaker::CircuitBreakerRegistry,
 ) -> Vec<sentinelmesh_core::EndpointObservation> {
     let tracked_accounts = config.tracked_accounts.clone();
     let tracked_signatures = tracked_signatures.to_vec();
     let validator_probes = config.validator_probes.clone();
     let concurrency = config.runtime.max_concurrency.max(1);
 
-    stream::iter(endpoints.into_iter().map(|endpoint| {
+    // Ask the circuit breaker which endpoints should be probed this cycle.
+    let all_ids: Vec<String> = endpoints.iter().map(|ep| ep.id.clone()).collect();
+    let allowed_ids = cb_registry.endpoints_to_probe(&all_ids);
+    let allowed_endpoints: Vec<sentinelmesh_core::RpcEndpointConfig> = endpoints
+        .into_iter()
+        .filter(|ep| allowed_ids.contains(&ep.id))
+        .collect();
+
+    stream::iter(allowed_endpoints.into_iter().map(|endpoint| {
         let probe = probe.clone();
         let tracked_accounts = tracked_accounts.clone();
         let tracked_signatures = tracked_signatures.clone();
         let validator_probes = validator_probes.clone();
 
         async move {
-            probe
+            let endpoint_id = endpoint.id.clone();
+            let observation = probe
                 .observe_endpoint(
                     endpoint,
                     &tracked_accounts,
                     &tracked_signatures,
                     &validator_probes,
                 )
-                .await
+                .await;
+            (endpoint_id, observation)
         }
     }))
     .buffer_unordered(concurrency)
-    .collect()
+    .collect::<Vec<_>>()
     .await
+    .into_iter()
+    .map(|(endpoint_id, obs)| {
+        // Consider the probe a failure when the health check did not succeed,
+        // which is the most fundamental indicator that the endpoint is unreachable.
+        if obs.health.value.is_none() {
+            cb_registry.record_failure(&endpoint_id);
+        } else {
+            cb_registry.record_success(&endpoint_id);
+        }
+        obs
+    })
+    .collect()
 }
 
 async fn run_canary_loop(

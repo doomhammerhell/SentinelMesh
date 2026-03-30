@@ -76,6 +76,23 @@ pub struct AgentConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CircuitBreakerConfig {
+    #[serde(default = "default_circuit_breaker_failure_threshold")]
+    pub failure_threshold: u32,
+    #[serde(default = "default_circuit_breaker_recovery_interval_secs")]
+    pub recovery_interval_secs: u64,
+}
+
+impl Default for CircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            failure_threshold: default_circuit_breaker_failure_threshold(),
+            recovery_interval_secs: default_circuit_breaker_recovery_interval_secs(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AgentRuntimeConfig {
     pub sentinel_id: String,
     pub location: String,
@@ -91,6 +108,8 @@ pub struct AgentRuntimeConfig {
     pub data_dir: String,
     #[serde(default = "default_wal_max_entries")]
     pub wal_max_entries: usize,
+    #[serde(default)]
+    pub circuit_breaker: CircuitBreakerConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -265,6 +284,10 @@ pub struct AnalysisConfig {
     pub retention: Duration,
     #[serde(default = "default_freshness_window", with = "humantime_serde")]
     pub freshness_window: Duration,
+    #[serde(default = "default_detection_mode")]
+    pub detection_mode: String,
+    #[serde(default = "default_sliding_window_size")]
+    pub sliding_window_size: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -279,6 +302,8 @@ pub struct KafkaConfig {
     pub brokers: Vec<String>,
     #[serde(default = "default_kafka_topic")]
     pub topic: String,
+    #[serde(default = "default_kafka_partitions")]
+    pub partitions: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -293,6 +318,12 @@ pub struct ClickHouseConfig {
         with = "humantime_serde"
     )]
     pub refresh_interval: Duration,
+    #[serde(default = "default_batch_size")]
+    pub batch_size: usize,
+    #[serde(default = "default_batch_timeout_secs")]
+    pub batch_timeout_secs: u64,
+    #[serde(default = "default_max_refresh_interval_secs")]
+    pub max_refresh_interval_secs: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -326,6 +357,8 @@ pub struct ServerSecurityConfig {
 pub struct AlertsConfig {
     pub min_severity: crate::model::AnomalySeverity,
     pub webhooks: Vec<WebhookConfig>,
+    #[serde(default = "default_rate_limit_window_secs")]
+    pub rate_limit_window_secs: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -459,6 +492,42 @@ fn default_environment() -> String {
 
 fn default_solana_cli_path() -> String {
     "solana".to_owned()
+}
+
+const fn default_kafka_partitions() -> u32 {
+    1
+}
+
+const fn default_batch_size() -> usize {
+    100
+}
+
+const fn default_batch_timeout_secs() -> u64 {
+    5
+}
+
+const fn default_max_refresh_interval_secs() -> u64 {
+    60
+}
+
+fn default_detection_mode() -> String {
+    "fixed".to_owned()
+}
+
+const fn default_sliding_window_size() -> usize {
+    100
+}
+
+const fn default_rate_limit_window_secs() -> u64 {
+    900
+}
+
+const fn default_circuit_breaker_failure_threshold() -> u32 {
+    3
+}
+
+const fn default_circuit_breaker_recovery_interval_secs() -> u64 {
+    60
 }
 
 #[cfg(test)]

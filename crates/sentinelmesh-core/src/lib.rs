@@ -15,11 +15,11 @@ pub use config::{
 pub use model::{
     AccountDivergence, AccountObservation, AccountStateVariant, Anomaly, AnomalySeverity,
     BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage, EndpointObservation,
-    EndpointSample, HealthResponse, IdentityObservation, InfrastructureConcentration,
-    IngestionResponse, LeaderScheduleObservation, NetworkSnapshot, ProbeBatch, ProbeEnvelope,
-    ProbeValue, PropagationSummary, ProviderShare, ProviderStatus, SignatureObservation,
-    SignaturePropagation, SignatureStatusObservation, ValidatorStateDivergence,
-    VoteAccountsObservation,
+    EndpointSample, HealthResponse, IdentityChangeEvent, IdentityObservation,
+    InfrastructureConcentration, IngestionResponse, LeaderScheduleObservation, MevAuditSummary,
+    NetworkSnapshot, ProbeBatch, ProbeEnvelope, ProbeValue, PropagationSummary, ProviderShare,
+    ProviderStatus, SignatureObservation, SignaturePropagation, SignatureStatusObservation,
+    TransactionOrderObservation, ValidatorStateDivergence, VoteAccountsObservation, ZScoreReport,
 };
 
 use anyhow::Context;

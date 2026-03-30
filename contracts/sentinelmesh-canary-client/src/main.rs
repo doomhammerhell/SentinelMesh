@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     let instr_data = CanaryInstruction {
         hash_iterations: args.hash_iterations,
     };
-    let data = instr_data.try_to_vec()?;
+    let data = borsh::to_vec(&instr_data)?;
 
     let instruction = Instruction {
         program_id,

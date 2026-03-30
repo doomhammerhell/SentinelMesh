@@ -35,19 +35,22 @@ impl SignerBackend for LocalMemorySigner {
 }
 
 /// The Hardware Enclave signer.
-/// This connects to an AWS Nitro Enclave via VSOCK (mocked via `UnixStream` for portability in this MVP).
-/// The Enclave receives the pre-computed hash and returns the raw signature safely without ever touching the RAM of the Host.
+/// On Linux, this connects to an AWS Nitro Enclave via VSOCK to sign batches.
+/// The Enclave receives the pre-computed hash and returns the raw Ed25519 signature
+/// without ever exposing the private key to host memory.
 pub struct NitroEnclaveSigner {
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub signer_id: String,
-    #[allow(dead_code)]
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub key_id: String,
-    #[allow(dead_code)]
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub vsock_cid: u32,
-    #[allow(dead_code)]
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub vsock_port: u32,
 }
 
 impl NitroEnclaveSigner {
+    #[must_use]
     pub fn new(config: &NitroEnclaveConfig) -> Self {
         Self {
             signer_id: config.signer_id.clone(),
@@ -58,22 +61,56 @@ impl NitroEnclaveSigner {
     }
 }
 
+// ── Linux: real VSOCK implementation ──────────────────────────────────────────
+#[cfg(target_os = "linux")]
 #[async_trait]
 impl SignerBackend for NitroEnclaveSigner {
-    async fn sign(&self, batch: &ProbeBatch, _signed_at: DateTime<Utc>) -> Result<BatchAuth> {
-        // Compute SHA256 of the batch as a signing envelope
-        // In a real Nitro Enclave, we would push this over a VSOCK socket.
+    async fn sign(&self, batch: &ProbeBatch, signed_at: DateTime<Utc>) -> Result<BatchAuth> {
+        use anyhow::Context;
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use std::time::Duration;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio_vsock::VsockStream;
+
         let batch_hash = sentinelmesh_core::stable_hash(batch)?;
-        let _payload = format!("{}:{}", self.signer_id, batch_hash);
+        let payload = format!("{}:{}:{}", self.signer_id, self.key_id, batch_hash);
 
-        // Simulated Vsock Write/Read:
-        // let mut socket = VsockStream::connect(self.vsock_cid, self.vsock_port).await?;
-        // socket.write_all(payload.as_bytes()).await?;
-        // let mut sig_buf = [0u8; 64];
-        // socket.read_exact(&mut sig_buf).await?;
-
-        anyhow::bail!(
-            "Nitro Enclave TEE signing interface is armed but requires a running CVM enclave to proceed."
+        let mut stream = tokio::time::timeout(
+            Duration::from_secs(5),
+            VsockStream::connect(tokio_vsock::VsockAddr::new(self.vsock_cid, self.vsock_port)),
         )
+        .await
+        .context("VSOCK connect timeout")?
+        .context("VSOCK connect failed")?;
+
+        // Send length-prefixed payload: [4 bytes big-endian length][payload bytes]
+        let payload_bytes = payload.as_bytes();
+        let len = u32::try_from(payload_bytes.len()).context("payload length exceeds u32")?;
+        stream.write_all(&len.to_be_bytes()).await?;
+        stream.write_all(payload_bytes).await?;
+
+        // Receive 64-byte raw Ed25519 signature
+        let mut sig_buf = [0u8; 64];
+        tokio::time::timeout(Duration::from_secs(5), stream.read_exact(&mut sig_buf))
+            .await
+            .context("VSOCK read timeout")?
+            .context("VSOCK read failed")?;
+
+        Ok(BatchAuth {
+            signer_id: self.signer_id.clone(),
+            key_id: self.key_id.clone(),
+            signed_at,
+            batch_hash,
+            signature_b64: STANDARD.encode(sig_buf),
+        })
+    }
+}
+
+// ── Non-Linux: stub that returns a descriptive error ─────────────────────────
+#[cfg(not(target_os = "linux"))]
+#[async_trait]
+impl SignerBackend for NitroEnclaveSigner {
+    async fn sign(&self, _batch: &ProbeBatch, _signed_at: DateTime<Utc>) -> Result<BatchAuth> {
+        anyhow::bail!("NitroEnclaveSigner is only supported on Linux with Nitro Enclaves")
     }
 }
