@@ -34,7 +34,7 @@ hyper = { version = "1.8", features = ["http1", "http2", "server"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto", "tokio", "service"] }
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.16", default-features = false }
-opentelemetry = "0.28"
+opentelemetry = "0.31"
 opentelemetry-otlp = { version = "0.28", features = ["grpc-tonic"] }
 opentelemetry_sdk = { version = "0.28", features = ["rt-tokio"] }
 parking_lot = "0.12"
