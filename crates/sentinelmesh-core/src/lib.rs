@@ -1,9 +1,12 @@
 pub mod auth;
 pub mod config;
+pub mod hlc;
 pub mod model;
 pub mod telemetry;
+pub mod zk;
 
 pub use auth::{BatchVerifier, SigningMaterial, TrustedSigner, sign_batch};
+pub use hlc::Hlc;
 pub use config::{
     AgentConfig, AgentRuntimeConfig, AggregatorConfig, AggregatorServerConfig, AlertsConfig,
     AnalysisConfig, CanaryCliTransferConfig, CanaryConfig, CanaryMode, ClickHouseConfig,
@@ -20,6 +23,7 @@ pub use model::{
     NetworkSnapshot, ProbeBatch, ProbeEnvelope, ProbeValue, PropagationSummary, ProviderShare,
     ProviderStatus, SignatureObservation, SignaturePropagation, SignatureStatusObservation,
     TransactionOrderObservation, ValidatorStateDivergence, VoteAccountsObservation, ZScoreReport,
+    AttestationQuote,
 };
 
 use anyhow::Context;
