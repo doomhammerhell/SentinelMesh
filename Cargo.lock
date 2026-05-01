@@ -3997,6 +3997,7 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "tokio-rustls 0.26.4",
+ "tower 0.4.13",
  "tower-http",
  "tracing",
  "tracing-opentelemetry",

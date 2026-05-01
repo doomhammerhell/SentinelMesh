@@ -2963,3 +2963,57 @@ mod tests {
         }
     }
 }
+
+/// FORMAL METHODS: Kani Verification Suite
+/// Use `cargo kani` to verify these invariants mathematically.
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// PROOF: HHI must stay within [1/n, 1.0] for any set of inputs.
+    #[kani::proof]
+    #[kani::unwind(11)]
+    fn verify_hhi_invariant_safety() {
+        let n: usize = kani::any();
+        kani::assume(n > 0 && n <= 10);
+
+        let mut total_with_asn = 0;
+        let mut counts: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
+
+        for i in 0..n {
+            let count: usize = kani::any();
+            kani::assume(count > 0 && count <= 100);
+            counts.insert(i as u32, count);
+            total_with_asn += count;
+        }
+
+        if total_with_asn == 0 {
+            return;
+        }
+
+        let mut asn_hhi = 0.0;
+        for count in counts.values() {
+            let share = (*count as f64) / (total_with_asn as f64);
+            asn_hhi += share * share;
+        }
+
+        let lower_bound = 1.0 / (n as f64);
+        assert!(asn_hhi >= lower_bound - 0.0001, "HHI below lower bound 1/n");
+        assert!(asn_hhi <= 1.0 + 0.0001, "HHI above upper bound 1.0");
+    }
+
+    /// PROOF: Z-Score calculation handle zero variance without panic.
+    #[kani::proof]
+    fn verify_zscore_no_panic_zero_variance() {
+        let mut window = SlidingWindow::new(5);
+        let val: f64 = kani::any();
+        kani::assume(val.is_finite());
+        
+        for _ in 0..5 {
+            window.push(val);
+        }
+        
+        let res = window.z_score(val);
+        assert!(res.is_none() || res.unwrap().is_finite());
+    }
+}

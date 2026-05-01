@@ -9,6 +9,7 @@ pub struct ProbeBatch {
     pub schema_version: u16,
     pub batch_id: Uuid,
     pub sampled_at: DateTime<Utc>,
+    pub hlc: crate::hlc::Hlc,
     pub sentinel_id: String,
     pub sentinel_location: String,
     #[serde(default)]
@@ -24,6 +25,7 @@ impl ProbeBatch {
             .map(|observation| EndpointSample {
                 batch_id: self.batch_id,
                 sampled_at: self.sampled_at,
+                hlc: self.hlc,
                 sentinel_id: self.sentinel_id.clone(),
                 sentinel_location: self.sentinel_location.clone(),
                 asn: self.asn,
@@ -38,6 +40,20 @@ pub struct ProbeEnvelope {
     pub batch: ProbeBatch,
     #[serde(default)]
     pub auth: Option<BatchAuth>,
+    #[serde(default)]
+    pub attestation: Option<AttestationQuote>,
+    #[serde(default)]
+    pub zk_proof: Option<crate::zk::ZkMembershipProof>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct AttestationQuote {
+    pub pcr0: String,
+    pub pcr1: String,
+    pub pcr2: String,
+    pub enclave_id: String,
+    pub signature_b64: String,
+    pub public_key_b64: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -53,6 +69,7 @@ pub struct BatchAuth {
 pub struct EndpointSample {
     pub batch_id: Uuid,
     pub sampled_at: DateTime<Utc>,
+    pub hlc: crate::hlc::Hlc,
     pub sentinel_id: String,
     pub sentinel_location: String,
     #[serde(default)]
@@ -690,6 +707,7 @@ mod tests {
                         schema_version,
                         batch_id,
                         sampled_at,
+                        hlc: crate::hlc::Hlc::default(),
                         sentinel_id,
                         sentinel_location,
                         asn,
@@ -701,7 +719,7 @@ mod tests {
 
     fn arb_probe_envelope() -> impl Strategy<Value = ProbeEnvelope> {
         (arb_probe_batch(), prop::option::of(arb_batch_auth()))
-            .prop_map(|(batch, auth)| ProbeEnvelope { batch, auth })
+            .prop_map(|(batch, auth)| ProbeEnvelope { batch, auth, attestation: None, zk_proof: None })
     }
 
     proptest! {

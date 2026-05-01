@@ -17,8 +17,9 @@ High-priority areas:
 
 - signed ingestion and key verification
 - canary transaction execution and key handling
-- replay log durability and data tampering
-- PostgreSQL persistence and query safety
+- agent WAL durability and data tampering
+- Kafka/Redpanda and ClickHouse persistence security
+- AWS Nitro Enclaves attestation and key isolation
 - deployment manifests that affect mTLS or exposure
 
 ## Disclosure

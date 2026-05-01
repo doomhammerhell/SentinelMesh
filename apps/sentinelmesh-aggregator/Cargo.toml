@@ -30,6 +30,7 @@ sentinelmesh-storage = { path = "../../crates/sentinelmesh-storage" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+tower = { version = "0.4.13", features = ["limit"] }
 tokio-rustls.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
