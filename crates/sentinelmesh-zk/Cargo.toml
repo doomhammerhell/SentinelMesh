@@ -1,0 +1,25 @@
+[package]
+name = "sentinelmesh-zk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+risc0-zkvm = { version = "1.0", default-features = false, features = ["prove", "std"] }
+sentinelmesh-core = { path = "../sentinelmesh-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+blake3 = "1.5"
+anyhow = "1.0"
+thiserror = "1.0"
+
+[dev-dependencies]
+risc0-zkvm = { version = "1.0", default-features = false, features = ["prove", "std", "dev-mode"] }
+
+[[bin]]
+name = "build-guest"
+path = "src/build.rs"
+
+[features]
+default = ["prove"]
+prove = ["risc0-zkvm/prove"]
+dev-mode = ["risc0-zkvm/dev-mode"]

@@ -1,0 +1,13 @@
+[package]
+name = "sentinelmesh-reputation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+borsh = { version = "1.5", features = ["derive"] }
+solana-program = "1.18"
+solana-security-txt = "1.1"
+thiserror = "1.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
