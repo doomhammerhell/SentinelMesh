@@ -180,6 +180,8 @@ pub struct CanaryConfig {
     pub interval: Duration,
     #[serde(default)]
     pub mode: CanaryMode,
+    #[serde(default)]
+    pub cooldown_seconds: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -243,7 +245,25 @@ pub struct AggregatorConfig {
     #[serde(default)]
     pub security: ServerSecurityConfig,
     #[serde(default)]
+    pub agent_whitelist: Option<Vec<String>>,
+    #[serde(default)]
+    pub committer: Option<StateCommitterConfig>,
+    #[serde(default)]
     pub alerts: Option<AlertsConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct StateCommitterConfig {
+    pub rpc_url: String,
+    pub keypair_path: String,
+    #[serde(default = "default_committer_interval", with = "humantime_serde")]
+    pub interval: Duration,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+fn default_committer_interval() -> Duration {
+    Duration::from_secs(3600) // 1 hora
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

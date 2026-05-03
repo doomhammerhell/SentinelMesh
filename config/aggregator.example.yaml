@@ -37,6 +37,18 @@ security:
   trusted_client_ca_path:
   require_client_cert: false
 
+# Phase 7: Sybil Resistance
+# List of allowed Ed25519 signer IDs (Public Keys)
+agent_whitelist:
+  - "347icyEv8rvDLqrjTA298CKk8Es2icW4n58DpxFdPo7X"
+
+# Phase 7: Data Availability (State Commitments)
+committer:
+  enabled: false
+  rpc_url: "https://api.devnet.solana.com"
+  keypair_path: "/etc/sentinelmesh/committer-keypair.json"
+  interval: 1h
+
 # alerts:
 #   min_severity: warning
 #   webhooks:

@@ -291,6 +291,7 @@ impl StorageEngine {
                         sentinel_location: String::new(),
                         asn,
                         sampled_at: parsed_sampled_at,
+                        hlc: sentinelmesh_core::Hlc::new(parsed_sampled_at.timestamp_millis(), 0),
                         observation: obs,
                     });
                 }
@@ -298,6 +299,36 @@ impl StorageEngine {
         }
 
         Ok(samples)
+    }
+    pub async fn list_agents(&self) -> Result<Vec<String>> {
+        let query = "SELECT DISTINCT sentinel_id FROM probe_batches FORMAT JSONEachRow";
+
+        let mut req = self
+            .clickhouse_client
+            .post(self.clickhouse_url.clone())
+            .body(query);
+        if let (Some(user), Some(password)) = (&self.clickhouse_user, &self.clickhouse_password) {
+            req = req.basic_auth(user, Some(password));
+        }
+
+        let res = req
+            .send()
+            .await
+            .context("failed to execute list_agents query")?;
+        if !res.status().is_success() {
+            return Ok(Vec::new());
+        }
+
+        let text = res.text().await?;
+        let mut agents = Vec::new();
+        for line in text.lines() {
+            if let Ok(row) = serde_json::from_str::<serde_json::Value>(line) {
+                if let Some(id) = row.get("sentinel_id").and_then(|v| v.as_str()) {
+                    agents.push(id.to_owned());
+                }
+            }
+        }
+        Ok(agents)
     }
 
     #[allow(clippy::unused_async)]

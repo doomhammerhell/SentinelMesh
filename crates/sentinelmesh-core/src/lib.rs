@@ -1,7 +1,9 @@
 pub mod auth;
 pub mod config;
+pub mod hlc;
 pub mod model;
 pub mod telemetry;
+pub mod zk;
 
 pub use auth::{BatchVerifier, SigningMaterial, TrustedSigner, sign_batch};
 pub use config::{
@@ -12,10 +14,11 @@ pub use config::{
     SigningKeyConfig, StorageConfig, TlsClientConfig, TrackedAccountConfig, TrustedSignerConfig,
     ValidatorProbeConfig, WebhookConfig, load_from_path,
 };
+pub use hlc::Hlc;
 pub use model::{
     AccountDivergence, AccountObservation, AccountStateVariant, Anomaly, AnomalySeverity,
-    BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage, EndpointObservation,
-    EndpointSample, HealthResponse, IdentityChangeEvent, IdentityObservation,
+    AttestationQuote, BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage,
+    EndpointObservation, EndpointSample, HealthResponse, IdentityChangeEvent, IdentityObservation,
     InfrastructureConcentration, IngestionResponse, LeaderScheduleObservation, MevAuditSummary,
     NetworkSnapshot, ProbeBatch, ProbeEnvelope, ProbeValue, PropagationSummary, ProviderShare,
     ProviderStatus, SignatureObservation, SignaturePropagation, SignatureStatusObservation,

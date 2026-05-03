@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (Amended 2026-04-30)
 
 ## Context
 
@@ -15,34 +15,44 @@ The initial prototype stored all active samples in memory. That was operationall
 
 ## Decision
 
-SentinelMesh will persist ingestion to PostgreSQL and optionally append every envelope to a local NDJSON replay log.
+SentinelMesh will persist ingestion to **Kafka/Redpanda** for streaming durability and **ClickHouse** for analytics, with optional local NDJSON replay log.
 
-The PostgreSQL layer stores:
+The **Kafka/Redpanda** layer provides:
+
+- partitioned ingestion (blake3 hash of sentinel_id for routing)
+- horizontal scalability
+- replay capability for new aggregator instances
+
+The **ClickHouse** layer stores:
 
 - probe batch metadata
 - endpoint samples as JSON payloads
+- Materialized Views for real-time analytics
 
 The replay log stores:
 
-- the full `ProbeEnvelope` as newline-delimited JSON
+- the full `ProbeEnvelope` as newline-delimited JSON (local backup)
 
 ## Consequences
 
 Positive:
 
-- durable ingest
+- durable ingest via distributed streaming
 - batch idempotency
 - horizontal scaling for aggregators
 - crash recovery path
+- high-throughput analytics with ClickHouse columnar storage
+- separation of concerns: streaming (Kafka) vs analytics (ClickHouse)
 
 Tradeoffs:
 
-- PostgreSQL becomes required for enterprise deployments
+- Kafka/Redpanda and ClickHouse become required for enterprise deployments
 - replay log is local, not a distributed log
-- analytics queries remain application-side over hydrated sample sets rather than SQL-native materialized views
+- operational complexity increased (two storage systems vs one)
 
 ## Follow-up
 
+- ✅ add ClickHouse sink for long-horizon analytics (implemented)
 - add partitioning and retention jobs for large-scale history
-- add ClickHouse sink for long-horizon analytics
 - add object-storage archival of replay logs
+- consider tiered storage (hot/warm/cold) for cost optimization

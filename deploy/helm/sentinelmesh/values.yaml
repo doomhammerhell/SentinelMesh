@@ -20,11 +20,18 @@ aggregator:
       retention: 10m
       freshness_window: 60s
     storage:
-      database:
-        postgres_url: postgres://sentinelmesh:sentinelmesh@postgres:5432/sentinelmesh
-        max_connections: 20
-        bootstrap_window: 10m
+      kafka:
+        brokers:
+          - redpanda:9092
+        topic: sentinelmesh_ingest
+        partitions: 3
+      clickhouse:
+        url: http://clickhouse:8123
+        user: sentinelmesh
+        password: sentinelmesh
+        database: sentinelmesh
         refresh_interval: 10s
+        max_refresh_interval_secs: 60
 
 agent:
   image:
