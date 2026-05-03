@@ -718,8 +718,14 @@ mod tests {
     }
 
     fn arb_probe_envelope() -> impl Strategy<Value = ProbeEnvelope> {
-        (arb_probe_batch(), prop::option::of(arb_batch_auth()))
-            .prop_map(|(batch, auth)| ProbeEnvelope { batch, auth, attestation: None, zk_proof: None })
+        (arb_probe_batch(), prop::option::of(arb_batch_auth())).prop_map(|(batch, auth)| {
+            ProbeEnvelope {
+                batch,
+                auth,
+                attestation: None,
+                zk_proof: None,
+            }
+        })
     }
 
     proptest! {

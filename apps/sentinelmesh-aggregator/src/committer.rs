@@ -1,26 +1,23 @@
-use std::sync::Arc;
 use anyhow::{Context, Result};
+use sha2::{Digest, Sha256};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     instruction::Instruction,
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{Keypair, Signer, read_keypair_file},
     transaction::Transaction,
 };
+use std::sync::Arc;
 use tokio::time::sleep;
 use tracing::{error, info};
-use sha2::{Sha256, Digest};
 
 use sentinelmesh_core::config::StateCommitterConfig;
 use sentinelmesh_storage::StorageEngine;
 
 const MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
-pub async fn start_committer_loop(
-    config: StateCommitterConfig,
-    storage: Arc<StorageEngine>,
-) {
+pub async fn start_committer_loop(config: StateCommitterConfig, storage: Arc<StorageEngine>) {
     if !config.enabled {
         info!("State Committer is disabled.");
         return;
@@ -31,7 +28,10 @@ pub async fn start_committer_loop(
     let keypair = match read_keypair_file(&config.keypair_path) {
         Ok(kp) => kp,
         Err(e) => {
-            error!("Failed to load committer keypair from {}: {}", config.keypair_path, e);
+            error!(
+                "Failed to load committer keypair from {}: {}",
+                config.keypair_path, e
+            );
             return;
         }
     };
@@ -69,13 +69,12 @@ async fn commit_cycle(
 
     let memo_message = format!("SentinelMesh Root: {}", root_hex);
 
-    let instruction = Instruction::new_with_bincode(
-        *memo_program_id,
-        &memo_message,
-        vec![],
-    );
+    let instruction = Instruction::new_with_bincode(*memo_program_id, &memo_message, vec![]);
 
-    let recent_blockhash = rpc_client.get_latest_blockhash().await.context("failed to get latest blockhash")?;
+    let recent_blockhash = rpc_client
+        .get_latest_blockhash()
+        .await
+        .context("failed to get latest blockhash")?;
 
     let transaction = Transaction::new_signed_with_payer(
         &[instruction],
@@ -84,9 +83,15 @@ async fn commit_cycle(
         recent_blockhash,
     );
 
-    let signature = rpc_client.send_and_confirm_transaction(&transaction).await.context("failed to send memo")?;
+    let signature = rpc_client
+        .send_and_confirm_transaction(&transaction)
+        .await
+        .context("failed to send memo")?;
 
-    info!("State Commitment successful. Root: {}. Signature: {}", root_hex, signature);
+    info!(
+        "State Commitment successful. Root: {}. Signature: {}",
+        root_hex, signature
+    );
 
     Ok(())
 }

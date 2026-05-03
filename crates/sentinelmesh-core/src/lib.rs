@@ -6,7 +6,6 @@ pub mod telemetry;
 pub mod zk;
 
 pub use auth::{BatchVerifier, SigningMaterial, TrustedSigner, sign_batch};
-pub use hlc::Hlc;
 pub use config::{
     AgentConfig, AgentRuntimeConfig, AggregatorConfig, AggregatorServerConfig, AlertsConfig,
     AnalysisConfig, CanaryCliTransferConfig, CanaryConfig, CanaryMode, ClickHouseConfig,
@@ -15,15 +14,15 @@ pub use config::{
     SigningKeyConfig, StorageConfig, TlsClientConfig, TrackedAccountConfig, TrustedSignerConfig,
     ValidatorProbeConfig, WebhookConfig, load_from_path,
 };
+pub use hlc::Hlc;
 pub use model::{
     AccountDivergence, AccountObservation, AccountStateVariant, Anomaly, AnomalySeverity,
-    BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage, EndpointObservation,
-    EndpointSample, HealthResponse, IdentityChangeEvent, IdentityObservation,
+    AttestationQuote, BatchAuth, BlockhashObservation, ClusterNodesObservation, ControlMessage,
+    EndpointObservation, EndpointSample, HealthResponse, IdentityChangeEvent, IdentityObservation,
     InfrastructureConcentration, IngestionResponse, LeaderScheduleObservation, MevAuditSummary,
     NetworkSnapshot, ProbeBatch, ProbeEnvelope, ProbeValue, PropagationSummary, ProviderShare,
     ProviderStatus, SignatureObservation, SignaturePropagation, SignatureStatusObservation,
     TransactionOrderObservation, ValidatorStateDivergence, VoteAccountsObservation, ZScoreReport,
-    AttestationQuote,
 };
 
 use anyhow::Context;

@@ -302,13 +302,19 @@ impl StorageEngine {
     }
     pub async fn list_agents(&self) -> Result<Vec<String>> {
         let query = "SELECT DISTINCT sentinel_id FROM probe_batches FORMAT JSONEachRow";
-        
-        let mut req = self.clickhouse_client.post(self.clickhouse_url.clone()).body(query);
+
+        let mut req = self
+            .clickhouse_client
+            .post(self.clickhouse_url.clone())
+            .body(query);
         if let (Some(user), Some(password)) = (&self.clickhouse_user, &self.clickhouse_password) {
             req = req.basic_auth(user, Some(password));
         }
 
-        let res = req.send().await.context("failed to execute list_agents query")?;
+        let res = req
+            .send()
+            .await
+            .context("failed to execute list_agents query")?;
         if !res.status().is_success() {
             return Ok(Vec::new());
         }

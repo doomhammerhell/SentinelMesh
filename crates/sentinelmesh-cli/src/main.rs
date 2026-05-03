@@ -32,19 +32,19 @@ use commands::*;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-    
+
     /// Configuration file path
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
-    
+
     /// Output format
     #[arg(short, long, global = true, value_enum, default_value = "table")]
     format: OutputFormat,
-    
+
     /// Quiet mode (suppress non-essential output)
     #[arg(short, long, global = true)]
     quiet: bool,
-    
+
     /// Verbose mode
     #[arg(short, long, global = true)]
     verbose: bool,
@@ -64,93 +64,93 @@ enum Commands {
         /// Deployment type
         #[arg(value_enum, default_value = "agent")]
         deployment_type: DeploymentType,
-        
+
         /// Region/location identifier
         #[arg(short, long)]
         region: Option<String>,
-        
+
         /// Output directory
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
     },
-    
+
     /// Validate and manage configuration files
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    
+
     /// Run and manage agent nodes
     Agent {
         #[command(subcommand)]
         action: AgentAction,
     },
-    
+
     /// Deploy and manage aggregators
     Aggregator {
         #[command(subcommand)]
         action: AggregatorAction,
     },
-    
+
     /// Test RPC endpoints with canary transactions
     Canary {
         /// RPC endpoint URL to test
         #[arg(short, long)]
         endpoint: String,
-        
+
         /// Network (mainnet, devnet, testnet)
         #[arg(short, long, default_value = "devnet")]
         network: String,
-        
+
         /// Amount in SOL
         #[arg(short, long, default_value = "0.000001")]
         amount: f64,
-        
+
         /// Keypair path for canary transactions
         #[arg(short, long)]
         keypair: Option<PathBuf>,
     },
-    
+
     /// Open the analytics dashboard
     Dashboard {
         /// Aggregator URL
         #[arg(short, long, default_value = "http://localhost:9480")]
         url: String,
-        
+
         /// Open in browser
         #[arg(short, long)]
         open: bool,
     },
-    
+
     /// ZK Proof operations
     Zk {
         #[command(subcommand)]
         action: ZkAction,
     },
-    
+
     /// On-chain reputation system
     Reputation {
         #[command(subcommand)]
         action: ReputationAction,
     },
-    
+
     /// Check system status and health
     Status {
         /// Check specific component
         #[arg(short, long)]
         component: Option<String>,
-        
+
         /// Watch mode (continuous updates)
         #[arg(short, long)]
         watch: bool,
     },
-    
+
     /// Run chaos engineering tests
     Chaos {
         /// Scenario to run
         #[arg(short, long)]
         scenario: Option<String>,
-        
+
         /// Duration of test
         #[arg(short, long, default_value = "5m")]
         duration: String,
@@ -177,7 +177,7 @@ enum ConfigAction {
         /// Output file
         #[arg(short, long)]
         output: Option<PathBuf>,
-        
+
         /// Type of config (agent or aggregator)
         #[arg(short, long, value_enum, default_value = "agent")]
         config_type: ConfigType,
@@ -199,7 +199,7 @@ enum AgentAction {
         /// Config file path
         #[arg(short, long)]
         config: PathBuf,
-        
+
         /// Detach mode
         #[arg(short, long)]
         detach: bool,
@@ -213,7 +213,7 @@ enum AgentAction {
         /// Follow logs
         #[arg(short, long)]
         follow: bool,
-        
+
         /// Number of lines
         #[arg(short, long, default_value = "100")]
         lines: usize,
@@ -227,7 +227,7 @@ enum AggregatorAction {
         /// Config file path
         #[arg(short, long)]
         config: PathBuf,
-        
+
         /// Environment (dev, staging, prod)
         #[arg(short, long, default_value = "dev")]
         env: String,
@@ -259,7 +259,7 @@ enum ZkAction {
         /// Batch file path
         #[arg(short, long)]
         batch: PathBuf,
-        
+
         /// Output file for proof
         #[arg(short, long)]
         output: Option<PathBuf>,
@@ -281,15 +281,15 @@ enum ReputationAction {
         /// Sentinel ID
         #[arg(short, long)]
         sentinel_id: String,
-        
+
         /// Initial stake in SOL
         #[arg(short, long, default_value = "1.0")]
         stake: f64,
-        
+
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
-        
+
         /// Payer keypair
         #[arg(short, long)]
         keypair: PathBuf,
@@ -299,7 +299,7 @@ enum ReputationAction {
         /// Sentinel address
         #[arg(short, long)]
         address: String,
-        
+
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
@@ -309,15 +309,15 @@ enum ReputationAction {
         /// Batch hash
         #[arg(short, long)]
         batch_hash: String,
-        
+
         /// ZK proof hash
         #[arg(short, long)]
         zk_proof: String,
-        
+
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
-        
+
         /// Payer keypair
         #[arg(short, long)]
         keypair: PathBuf,
@@ -327,7 +327,7 @@ enum ReputationAction {
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
-        
+
         /// Payer keypair
         #[arg(short, long)]
         keypair: PathBuf,
@@ -337,11 +337,11 @@ enum ReputationAction {
         /// Amount in SOL
         #[arg(short, long)]
         amount: f64,
-        
+
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
-        
+
         /// Payer keypair
         #[arg(short, long)]
         keypair: PathBuf,
@@ -351,7 +351,7 @@ enum ReputationAction {
         /// RPC URL
         #[arg(short, long)]
         rpc: String,
-        
+
         /// Number of entries
         #[arg(short, long, default_value = "10")]
         limit: usize,
@@ -361,14 +361,18 @@ enum ReputationAction {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    
+
     // Set up logging based on verbosity
     if cli.verbose {
         tracing_subscriber::fmt::init();
     }
-    
+
     match cli.command {
-        Commands::Init { deployment_type, region, output } => {
+        Commands::Init {
+            deployment_type,
+            region,
+            output,
+        } => {
             commands::init::execute(deployment_type, region, output).await?;
         }
         Commands::Config { action } => {
@@ -380,7 +384,12 @@ async fn main() -> Result<()> {
         Commands::Aggregator { action } => {
             commands::stubs::aggregator::execute(action).await?;
         }
-        Commands::Canary { endpoint, network, amount, keypair } => {
+        Commands::Canary {
+            endpoint,
+            network,
+            amount,
+            keypair,
+        } => {
             commands::stubs::canary::execute(endpoint, network, amount, keypair).await?;
         }
         Commands::Dashboard { url, open } => {
@@ -399,6 +408,6 @@ async fn main() -> Result<()> {
             commands::stubs::chaos::execute(scenario, duration).await?;
         }
     }
-    
+
     Ok(())
 }

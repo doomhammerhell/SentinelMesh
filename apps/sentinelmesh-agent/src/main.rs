@@ -20,7 +20,7 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use parking_lot::RwLock;
 use reqwest::{Certificate, Client, Identity};
 use sentinelmesh_core::{
-    AgentConfig, BatchAuth, HealthResponse, ProbeBatch, ProbeEnvelope, AttestationQuote,
+    AgentConfig, AttestationQuote, BatchAuth, HealthResponse, ProbeBatch, ProbeEnvelope,
     telemetry::init_tracing,
 };
 use sentinelmesh_solana::SolanaProbe;

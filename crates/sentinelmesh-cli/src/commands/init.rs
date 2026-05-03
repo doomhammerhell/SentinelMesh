@@ -12,8 +12,11 @@ pub async fn execute(
     region: Option<String>,
     output: PathBuf,
 ) -> Result<()> {
-    println!("{}", "🚀 Initializing SentinelMesh deployment...".bold().cyan());
-    
+    println!(
+        "{}",
+        "🚀 Initializing SentinelMesh deployment...".bold().cyan()
+    );
+
     let region = region.unwrap_or_else(|| {
         // Try to detect region from environment
         std::env::var("AWS_REGION")
@@ -21,30 +24,34 @@ pub async fn execute(
             .or_else(|_| std::env::var("REGION"))
             .unwrap_or_else(|_| "unknown-region".to_string())
     });
-    
+
     match deployment_type {
         DeploymentType::Agent => init_agent(&region, &output).await?,
         DeploymentType::Aggregator => init_aggregator(&region, &output).await?,
         DeploymentType::Full => init_full(&region, &output).await?,
     }
-    
+
     println!("{}", "✅ Initialization complete!".bold().green());
     println!("\nNext steps:");
     println!("  1. Review the generated configuration files");
     println!("  2. Configure your RPC endpoints");
-    println!("  3. Run: sentinelmesh config validate --file {}/agent.yaml", output.display());
-    
+    println!(
+        "  3. Run: sentinelmesh config validate --file {}/agent.yaml",
+        output.display()
+    );
+
     Ok(())
 }
 
 async fn init_agent(region: &str, output: &PathBuf) -> Result<()> {
     println!("  {} Creating agent configuration...", "→".dimmed());
-    
+
     fs::create_dir_all(output)?;
-    
+
     let sentinel_id = format!("sentinel-{}", region.replace('_', "-"));
-    
-    let config = format!(r#"log_filter: info,sentinelmesh_agent=debug
+
+    let config = format!(
+        r#"log_filter: info,sentinelmesh_agent=debug
 
 runtime:
   sentinel_id: {}
@@ -91,14 +98,16 @@ endpoints: []
 tracked_accounts: []
 
 tracked_signatures: []
-"#, sentinel_id, region, sentinel_id);
-    
+"#,
+        sentinel_id, region, sentinel_id
+    );
+
     let config_path = output.join("agent.yaml");
     fs::write(&config_path, config)
         .with_context(|| format!("Failed to write {}", config_path.display()))?;
-    
+
     println!("  {} Created {}", "✓".green(), config_path.display());
-    
+
     // Create .gitignore
     let gitignore = r#"# SentinelMesh Agent
 /data/
@@ -109,18 +118,19 @@ tracked_signatures: []
 "#;
     let gitignore_path = output.join(".gitignore");
     fs::write(&gitignore_path, gitignore)?;
-    
+
     println!("  {} Created {}", "✓".green(), gitignore_path.display());
-    
+
     Ok(())
 }
 
 async fn init_aggregator(region: &str, output: &PathBuf) -> Result<()> {
     println!("  {} Creating aggregator configuration...", "→".dimmed());
-    
+
     fs::create_dir_all(output)?;
-    
-    let config = format!(r#"log_filter: info,sentinelmesh_aggregator=debug
+
+    let config = format!(
+        r#"log_filter: info,sentinelmesh_aggregator=debug
 
 server:
   bind_address: 0.0.0.0:9480
@@ -167,27 +177,28 @@ reputation:
 #   min_severity: warning
 #   webhooks:
 #     - url: "https://hooks.slack.com/services/..."
-"#);
-    
+"#
+    );
+
     let config_path = output.join("aggregator.yaml");
     fs::write(&config_path, config)?;
-    
+
     println!("  {} Created {}", "✓".green(), config_path.display());
-    
+
     Ok(())
 }
 
 async fn init_full(region: &str, output: &PathBuf) -> Result<()> {
     println!("{}", "Setting up full deployment...".dimmed());
-    
+
     // Create agent config
     let agent_dir = output.join("agent");
     init_agent(region, &agent_dir).await?;
-    
+
     // Create aggregator config
     let aggregator_dir = output.join("aggregator");
     init_aggregator(region, &aggregator_dir).await?;
-    
+
     // Create docker-compose for local dev
     let compose = r#"version: '3.8'
 
@@ -236,11 +247,11 @@ services:
     volumes:
       - ./agent/agent.yaml:/etc/sentinelmesh/agent.yaml:ro
 "#;
-    
+
     let compose_path = output.join("docker-compose.yml");
     fs::write(&compose_path, compose)?;
-    
+
     println!("  {} Created {}", "✓".green(), compose_path.display());
-    
+
     Ok(())
 }

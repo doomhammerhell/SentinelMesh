@@ -61,8 +61,7 @@ async fn init_sentinel(
     println!("{}", "Transaction Details:".bold());
     println!(
         "  Program: {}",
-        "Rep111111111111111111111111111111111111111"
-            .dimmed()
+        "Rep111111111111111111111111111111111111111".dimmed()
     );
     println!("  Instruction: InitializeSentinel");
     println!("  Stake: {} lamports", stake_lamports.to_string().dimmed());
@@ -113,7 +112,11 @@ async fn check_status(address: String, rpc: String) -> Result<()> {
     );
     println!(
         "  Reputation: {}/10000",
-        status["reputation_score"].as_u64().unwrap_or(0).to_string().bold()
+        status["reputation_score"]
+            .as_u64()
+            .unwrap_or(0)
+            .to_string()
+            .bold()
     );
     println!(
         "  Batches: {} submitted, {} accepted",
@@ -154,7 +157,10 @@ async fn submit_batch(
     rpc: String,
     keypair: std::path::PathBuf,
 ) -> Result<()> {
-    println!("{}", "📤 Submitting Batch to Reputation Program...".bold().cyan());
+    println!(
+        "{}",
+        "📤 Submitting Batch to Reputation Program...".bold().cyan()
+    );
 
     println!("  {} Batch Hash: {}", "→".dimmed(), batch_hash.dimmed());
     println!("  {} ZK Proof: {}", "→".dimmed(), zk_proof.dimmed());
@@ -189,23 +195,20 @@ async fn claim_rewards(rpc: String, keypair: std::path::PathBuf) -> Result<()> {
     Ok(())
 }
 
-async fn withdraw_stake(
-    amount: f64,
-    rpc: String,
-    keypair: std::path::PathBuf,
-) -> Result<()> {
+async fn withdraw_stake(amount: f64, rpc: String, keypair: std::path::PathBuf) -> Result<()> {
     println!("{}", "💸 Withdrawing Stake...".bold().cyan());
 
-    println!("  {} Amount: {} SOL", "→".dimmed(), amount.to_string().bold());
+    println!(
+        "  {} Amount: {} SOL",
+        "→".dimmed(),
+        amount.to_string().bold()
+    );
 
     // TODO: Withdraw from Solana program
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     println!();
-    println!(
-        "{}",
-        "⚠️  Withdrawal cooldown initiated".yellow().bold()
-    );
+    println!("{}", "⚠️  Withdrawal cooldown initiated".yellow().bold());
     println!("  Your stake will be available in 7 days");
     println!("  This cooldown period protects the network");
 

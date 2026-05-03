@@ -18,7 +18,6 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::{get, post},
 };
-use tower::limit::concurrency::ConcurrencyLimitLayer;
 use clap::Parser;
 use hyper_util::{
     rt::{TokioExecutor, TokioIo},
@@ -42,6 +41,7 @@ use sentinelmesh_core::{
 use sentinelmesh_storage::StorageEngine;
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
+use tower::limit::concurrency::ConcurrencyLimitLayer;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{error, info, warn};
 
@@ -485,7 +485,9 @@ fn verify_envelope(state: &AppState, envelope: &ProbeEnvelope) -> Result<(), App
     // HLC Drift Check (Max 60s future drift allowed to prevent clock bloating attacks)
     let now_ms = chrono::Utc::now().timestamp_millis();
     if envelope.batch.hlc.wall_time > now_ms + 60_000 {
-        return Err(AppError::bad_request("HLC wall time drifted too far in the future"));
+        return Err(AppError::bad_request(
+            "HLC wall time drifted too far in the future",
+        ));
     }
 
     if let Some(auth) = &envelope.auth {
@@ -518,7 +520,7 @@ fn verify_attestation(quote: &sentinelmesh_core::AttestationQuote) -> Result<(),
     if quote.pcr0.is_empty() || quote.signature_b64.is_empty() {
         return Err(AppError::bad_request("invalid attestation quote structure"));
     }
-    
+
     tracing::debug!(enclave_id = %quote.enclave_id, "hardware attestation checked");
     Ok(())
 }

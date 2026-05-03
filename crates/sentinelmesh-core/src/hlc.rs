@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn test_hlc_deterministic_monotonicity() {
         let h1 = Hlc::new(1000, 0);
-        
+
         // Wall time advances
         let h2 = Hlc::from_now(&h1, 1100);
         assert!(h2 > h1);

@@ -1,13 +1,13 @@
 //! SentinelMesh ZK Proof System
-//! 
+//!
 //! This crate provides zero-knowledge proof generation and verification
 //! for SentinelMesh probe batches, enabling irrefutable integrity claims.
-//! 
+//!
 //! Uses RISC Zero for proof generation and verification.
 
 use anyhow::{Context, Result};
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt, VerifierContext};
-use sentinelmesh_core::{ProbeBatch, stable_hash};
+use sentinelmesh_core::{stable_hash, ProbeBatch};
 use serde::{Deserialize, Serialize};
 
 // Include the compiled guest binary
@@ -77,19 +77,19 @@ impl BatchProver {
     /// Create a new prover with a list of allowed sentinel IDs
     pub fn new(config: ZkConfig, allowed_sentinels: Vec<String>) -> Result<Self> {
         let sentinels_root = compute_sentinels_root(&allowed_sentinels);
-        
+
         Ok(Self {
             config,
             allowed_sentinels,
             sentinels_root,
         })
     }
-    
+
     /// Generate a ZK proof for a batch
-    /// 
+    ///
     /// # Arguments
     /// * `batch` - The probe batch to prove
-    /// 
+    ///
     /// # Returns
     /// A `BatchProof` containing the receipt and public output
     pub fn prove(&self, batch: &ProbeBatch) -> Result<BatchProof> {
@@ -104,13 +104,13 @@ impl BatchProver {
                 *hasher.finalize().as_bytes()
             })
             .collect();
-        
+
         // Generate merkle proof for sentinel
         let sentinel_proof = self.generate_sentinel_proof(&batch.sentinel_id)?;
-        
+
         // Compute batch hash
         let batch_hash = compute_batch_hash(batch)?;
-        
+
         let input = ZkBatchInput {
             batch_hash,
             sentinel_id: batch.sentinel_id.clone(),
@@ -121,39 +121,39 @@ impl BatchProver {
             allowed_sentinels_root: self.sentinels_root,
             sentinel_merkle_proof: sentinel_proof,
         };
-        
+
         // Execute the guest program
         let env = ExecutorEnv::builder()
             .write(&input)
             .context("failed to serialize ZK input")?
             .build()
             .context("failed to build executor environment")?;
-        
+
         let prover = default_prover();
-        
+
         let opts = if self.config.dev_mode {
             ProverOpts::fast()
         } else {
             ProverOpts::default()
         };
-        
+
         let receipt = prover
             .prove_with_opts(env, SENTINELMESH_ZK_GUEST_ELF, &opts)
             .context("failed to generate ZK proof")?;
-        
+
         // Extract output from journal
         let output: ZkBatchOutput = receipt
             .journal
             .decode()
             .context("failed to decode ZK output from journal")?;
-        
+
         if !output.verified {
             anyhow::bail!("ZK proof verification failed: batch did not meet criteria");
         }
-        
+
         Ok(BatchProof { receipt, output })
     }
-    
+
     /// Verify a ZK proof
     pub fn verify(&self, proof: &BatchProof) -> Result<bool> {
         let ctx = VerifierContext::default();
@@ -161,28 +161,28 @@ impl BatchProver {
             .receipt
             .verify(SENTINELMESH_ZK_GUEST_ID, &ctx)
             .context("ZK proof verification failed")?;
-        
+
         // Also verify the output matches expectations
         let output: ZkBatchOutput = proof
             .receipt
             .journal
             .decode()
             .context("failed to decode output")?;
-        
+
         Ok(output.verified)
     }
-    
+
     /// Generate a merkle proof that a sentinel is in the allowed list
     fn generate_sentinel_proof(&self, sentinel_id: &str) -> Result<Vec<[u8; 32]>> {
         let sentinel_hash = hash_sentinel_id(sentinel_id);
-        
+
         // Build merkle tree and find path
         let leaves: Vec<[u8; 32]> = self
             .allowed_sentinels
             .iter()
             .map(|id| hash_sentinel_id(id))
             .collect();
-        
+
         let tree = MerkleTree::new(&leaves);
         tree.generate_proof(&sentinel_hash)
             .context("sentinel not found in allowed list")
@@ -224,15 +224,15 @@ impl MerkleTree {
         let levels = Self::build_tree(&leaves);
         Self { leaves, levels }
     }
-    
+
     fn build_tree(leaves: &[[u8; 32]]) -> Vec<Vec<[u8; 32]>> {
         if leaves.is_empty() {
             return vec![];
         }
-        
+
         let mut levels = vec![leaves.to_vec()];
         let mut current = leaves.to_vec();
-        
+
         while current.len() > 1 {
             let mut next = Vec::new();
             for chunk in current.chunks(2) {
@@ -243,10 +243,10 @@ impl MerkleTree {
             levels.push(next.clone());
             current = next;
         }
-        
+
         levels
     }
-    
+
     pub fn root(&self) -> [u8; 32] {
         self.levels
             .last()
@@ -254,27 +254,27 @@ impl MerkleTree {
             .copied()
             .unwrap_or([0u8; 32])
     }
-    
+
     pub fn generate_proof(&self, leaf: &[u8; 32]) -> Option<Vec<[u8; 32]>> {
         let leaf_idx = self.leaves.iter().position(|l| l == leaf)?;
         let mut proof = Vec::new();
         let mut idx = leaf_idx;
-        
+
         for level in &self.levels {
             if level.len() <= 1 {
                 break;
             }
-            
+
             let sibling_idx = if idx % 2 == 0 {
                 (idx + 1).min(level.len() - 1)
             } else {
                 idx - 1
             };
-            
+
             proof.push(level[sibling_idx]);
             idx /= 2;
         }
-        
+
         Some(proof)
     }
 }
@@ -294,7 +294,7 @@ fn hash_pair(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_merkle_tree() {
         let leaves: Vec<[u8; 32]> = (0..4)
@@ -304,17 +304,17 @@ mod tests {
                 hash
             })
             .collect();
-        
+
         let tree = MerkleTree::new(&leaves);
         let root = tree.root();
-        
+
         // Verify all leaves have valid proofs
         for leaf in &leaves {
             let proof = tree.generate_proof(leaf).unwrap();
             assert!(verify_proof(*leaf, &proof, root));
         }
     }
-    
+
     fn verify_proof(leaf: [u8; 32], proof: &[[u8; 32]], root: [u8; 32]) -> bool {
         let mut current = leaf;
         for sibling in proof {

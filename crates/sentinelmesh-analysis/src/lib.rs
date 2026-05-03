@@ -3008,11 +3008,11 @@ mod verification {
         let mut window = SlidingWindow::new(5);
         let val: f64 = kani::any();
         kani::assume(val.is_finite());
-        
+
         for _ in 0..5 {
             window.push(val);
         }
-        
+
         let res = window.z_score(val);
         assert!(res.is_none() || res.unwrap().is_finite());
     }

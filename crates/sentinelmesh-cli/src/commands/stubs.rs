@@ -1,9 +1,9 @@
 //! Stub commands for CLI
 
 pub mod agent {
-    use anyhow::Result;
     use crate::AgentAction;
-    
+    use anyhow::Result;
+
     pub async fn execute(action: AgentAction) -> Result<()> {
         match action {
             AgentAction::Run { config, detach } => {
@@ -28,9 +28,9 @@ pub mod agent {
 }
 
 pub mod aggregator {
-    use anyhow::Result;
     use crate::AggregatorAction;
-    
+    use anyhow::Result;
+
     pub async fn execute(action: AggregatorAction) -> Result<()> {
         match action {
             AggregatorAction::Deploy { config, env } => {
@@ -54,7 +54,7 @@ pub mod aggregator {
 pub mod canary {
     use anyhow::Result;
     use std::path::PathBuf;
-    
+
     pub async fn execute(
         endpoint: String,
         network: String,
@@ -68,10 +68,10 @@ pub mod canary {
         if let Some(kp) = keypair {
             println!("  Keypair: {}", kp.display());
         }
-        
+
         // TODO: Implement canary transaction
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-        
+
         println!("✓ Canary test completed successfully");
         Ok(())
     }
@@ -79,7 +79,7 @@ pub mod canary {
 
 pub mod chaos {
     use anyhow::Result;
-    
+
     pub async fn execute(scenario: Option<String>, duration: String) -> Result<()> {
         println!("🔥 Running chaos engineering test...");
         println!("  Duration: {}", duration);
@@ -88,19 +88,19 @@ pub mod chaos {
         } else {
             println!("  Scenario: random");
         }
-        
+
         // TODO: Implement chaos scenarios
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-        
+
         println!("✓ Chaos test completed");
         Ok(())
     }
 }
 
 pub mod config {
-    use anyhow::Result;
     use crate::{ConfigAction, ConfigType, OutputFormat};
-    
+    use anyhow::Result;
+
     pub async fn execute(action: ConfigAction, format: OutputFormat) -> Result<()> {
         match action {
             ConfigAction::Validate { file } => {
@@ -108,7 +108,10 @@ pub mod config {
                 // TODO: Implement validation
                 println!("✓ Configuration is valid");
             }
-            ConfigAction::Example { output, config_type } => {
+            ConfigAction::Example {
+                output,
+                config_type,
+            } => {
                 let type_str = match config_type {
                     ConfigType::Agent => "agent",
                     ConfigType::Aggregator => "aggregator",
@@ -129,7 +132,7 @@ pub mod config {
 
 pub mod dashboard {
     use anyhow::Result;
-    
+
     pub async fn execute(url: String, open: bool) -> Result<()> {
         println!("📊 Dashboard URL: {}", url);
         if open {
