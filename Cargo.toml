@@ -3,14 +3,17 @@ members = [
     "apps/sentinelmesh-agent",
     "apps/sentinelmesh-aggregator",
     "crates/sentinelmesh-analysis",
+    "crates/sentinelmesh-cli",
     "crates/sentinelmesh-core",
     "crates/sentinelmesh-solana",
     "crates/sentinelmesh-storage",
+    "crates/sentinelmesh-zk",
     "contracts/sentinelmesh-canary-client",
     "tests/integration",
 ]
 exclude = [
     "contracts/sentinelmesh-canary",
+    "contracts/sentinelmesh-reputation",
 ]
 resolver = "2"
 

@@ -37,9 +37,10 @@ Mitigations:
 
 Mitigations:
 
-- PostgreSQL durability
-- replay log append before durable ingest completion
-- state rebuild from storage on restart
+- **Kafka/Redpanda** streaming durability with partitioned ingestion
+- **ClickHouse** columnar storage for analytics with batch writes
+- agent WAL (sled) with ring buffer for local resilience
+- state rebuild from ClickHouse on aggregator restart
 
 ### Forged telemetry from an unauthorized agent
 

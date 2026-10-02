@@ -31,6 +31,7 @@ observability: {}
 canary:
   enabled: false
   interval: 45s
+  cooldown_seconds: 3600 # 1 hour hard cooldown for economics
   mode:
     type: disabled
     # Example for automatic canary transfers via Solana CLI:

@@ -4,6 +4,8 @@ SentinelMesh is an open infrastructure observability layer for the Solana networ
 
 The repository is structured as an enterprise-oriented open-source Rust workspace with durable storage, signed ingestion, replayable telemetry, validator-centric probes, canary transaction support, deployment assets, CI/CD and operational documentation.
 
+**[Read the Elite Grant Strategy Document](docs/grant-strategy.md)** — Our technical vision for irrefutable integrity via Formal Methods and ZK.
+
 ## On-Chain Addresses (Solana Devnet)
 
 | Contract | Program ID | Explorer |
@@ -19,7 +21,7 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 - Compares tracked account state hashes across the infrastructure edge
 - Samples validator-centric views such as identity, vote accounts, cluster nodes and leader schedule
 - Produces real-time integrity metrics and anomalies through a public aggregation API
-- Stores observations durably in PostgreSQL and replays local ingestion logs for crash recovery
+- Stores observations durably in **ClickHouse** (analytics) and **Kafka/Redpanda** (streaming ingestion), with local WAL replay for crash recovery
 - Features a **Cyberpunk-themed Premium Dashboard** (`/`) for real-time visualization of Provider HHI and fleet telemetry
 - Supports hardware-isolated cryptographic signing via **AWS Nitro Enclaves** (TEEs)
 - Audits network Censorship Resistance deterministically via the **Canary DEX Smart Contract**
@@ -32,13 +34,13 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 - `crates/sentinelmesh-core`: shared config, wire models, signing and telemetry bootstrap
 - `crates/sentinelmesh-solana`: Solana JSON-RPC client and advanced probe logic
 - `crates/sentinelmesh-analysis`: freshness-window analytics and anomaly derivation
-- `crates/sentinelmesh-storage`: PostgreSQL durability and replay-log support
+- `crates/sentinelmesh-storage`: **Kafka/Redpanda** streaming ingestion and **ClickHouse** analytics durability
 
 ## Architecture
 
 1. Agent nodes probe a portfolio of RPC and validator-capable endpoints.
 2. Each probe cycle yields a `ProbeBatch`, optionally signed with an Ed25519 key.
-3. The aggregator validates auth, persists the batch to PostgreSQL, appends to the replay log and updates the in-memory analytics view.
+3. The aggregator validates auth, persists the batch to **Kafka/Redpanda** (partitioned by sentinel_id), streams to **ClickHouse** via Materialized View, and updates the in-memory analytics view.
 4. Any aggregator instance can rebuild the active window from shared storage, enabling stateless horizontal scaling behind a load balancer.
 5. Operators and developers consume data through the REST API, dashboard, Prometheus metrics, OTLP traces and versioned monitoring assets.
 
@@ -46,10 +48,11 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 
 ### Durability and HA
 
-- PostgreSQL-backed durable ingestion
+- **Kafka/Redpanda** streaming ingestion with configurable partitions (blake3 hash routing)
+- **ClickHouse** columnar storage for analytics with batch writes and Materialized Views
 - Idempotent batch persistence keyed by `batch_id`
 - **Agent Local WAL (`sled`)** with Ring Buffer Eviction (Zero-Day disk exhaustion protection)
-- Periodic in-memory state hydration from storage for stateless aggregator instances
+- Periodic in-memory state hydration from ClickHouse for stateless aggregator instances
 
 ### Security & Hardware Isolation
 
@@ -76,10 +79,10 @@ The repository is structured as an enterprise-oriented open-source Rust workspac
 
 ## Quickstart
 
-Start PostgreSQL:
+Start Kafka/Redpanda and ClickHouse:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d redpanda clickhouse
 ```
 
 Start the aggregator:

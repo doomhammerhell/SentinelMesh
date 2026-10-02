@@ -252,6 +252,7 @@ mod tests {
                     schema_version,
                     batch_id: Uuid::new_v4(),
                     sampled_at: Utc::now(),
+                    hlc: crate::hlc::Hlc::default(),
                     sentinel_id,
                     sentinel_location,
                     asn,
